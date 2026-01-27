@@ -20,6 +20,7 @@ struct ContentView: View {
             .padding(.vertical, 16)
         }
         .scrollIndicators(.hidden)
+        .background(ScrollViewConfigurator())
         .background(background)
         .overlay(
             WindowAccessor { window in
@@ -217,6 +218,30 @@ struct WindowAccessor: NSViewRepresentable {
         DispatchQueue.main.async {
             if let window = nsView.window {
                 onWindow(window)
+            }
+        }
+    }
+}
+
+struct ScrollViewConfigurator: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            if let scrollView = view.enclosingScrollView {
+                scrollView.hasVerticalScroller = false
+                scrollView.hasHorizontalScroller = false
+                scrollView.autohidesScrollers = true
+            }
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async {
+            if let scrollView = nsView.enclosingScrollView {
+                scrollView.hasVerticalScroller = false
+                scrollView.hasHorizontalScroller = false
+                scrollView.autohidesScrollers = true
             }
         }
     }
