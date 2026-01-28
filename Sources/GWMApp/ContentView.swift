@@ -172,10 +172,12 @@ struct WorktreeRow: View {
     var body: some View {
         HStack() {
             titleBlock
-            IconGrid(buttons: worktree.buttons, onRunButton: onRunButton)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            Spacer();
+            ForEach(worktree.buttons, id: \.swiftUIId) { button in
+                AppIconButton(button: button, onRunButton: onRunButton)
+            }
             
-                Button(action: onRemove) {
+            Button(action: onRemove) {
                     Image(systemName: "trash")
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(Theme.coral)
@@ -193,6 +195,7 @@ struct WorktreeRow: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Delete Worktree")
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(Color.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))

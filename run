@@ -1,8 +1,25 @@
 #!/bin/zsh
 set -euo pipefail
+
+stdout=false
+for arg in "$@"; do
+  case "$arg" in
+    --stdout) stdout=true ;;
+    *) ;;
+  esac
+done
+
 swift build -c release --product GWMApp
 osascript -e 'tell application id "com.lucasmeijer.worky" to quit' >/dev/null 2>&1 || true
 pkill -f "dist/Worky.app/Contents/MacOS/GWMApp" >/dev/null 2>&1 || true
 sleep 0.5
 scripts/build_worky_app.sh
-open dist/Worky.app
+
+app_path="dist/Worky.app"
+app_bin="$app_path/Contents/MacOS/GWMApp"
+
+if $stdout; then
+  "$app_bin"
+else
+  open "$app_path"
+fi

@@ -7,8 +7,8 @@ enum ConfigPaths {
             return URL(fileURLWithPath: PathExpander.expand(override))
         }
         return FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".config")
-            .appendingPathComponent("git_worktree_manager")
+            .appendingPathComponent(".worky")
+            .appendingPathComponent("config")
     }
 
     static var worktreeRoot: URL {
