@@ -14,40 +14,50 @@ struct GhosttyController: GhosttyControlling {
     private static let openExecutable = "/usr/bin/open"
 
     func openOrFocus(projectName: String, worktreeName: String, worktreePath: String) {
-        let windowTitle = ghosttyWindowTitle(projectName: projectName, worktreeName: worktreeName)
-        print("GWM Ghostty: looking for existing window with title \"\(windowTitle)\"")
-        if focusExistingWindow(title: windowTitle) {
+        // Convert worktree path to file:// URL with trailing slash (matching AXDocument format)
+        let targetURL = URL(fileURLWithPath: worktreePath, isDirectory: true).absoluteString
+        print("GWM Ghostty: looking for window with directory \"\(worktreePath)\"")
+        print("GWM Ghostty: target URL: \(targetURL)")
+
+        if focusExistingWindow(documentURL: targetURL) {
             print("GWM Ghostty: focused existing window")
             return
         }
-        if openWithAppleScript(worktreePath: worktreePath, windowTitle: windowTitle) {
+
+        print("GWM Ghostty: no existing window found, creating new one")
+        if openWithAppleScript(worktreePath: worktreePath) {
             return
         }
+
         let command = [
             Self.openExecutable,
             "-n",
             "-a",
             "Ghostty.app",
             "--args",
-            "--working-directory=\(worktreePath)",
-            "--title=\(windowTitle)"
+            "--working-directory=\(worktreePath)"
         ]
         print("GWM Ghostty: launching new window")
         print("GWM Ghostty: command \(command.joined(separator: " "))")
         _ = try? runner.run(command, currentDirectory: nil)
     }
 
-    private func openWithAppleScript(worktreePath: String, windowTitle: String) -> Bool {
-        let openCommand = ghosttyOpenCommand(worktreePath: worktreePath, windowTitle: windowTitle)
+    private func openWithAppleScript(worktreePath: String) -> Bool {
         let script = [
-            "tell application \"Ghostty\" to activate",
-            "do shell script \"\(openCommand)\""
-        ]
-        var command = [Self.osascriptExecutable]
-        for line in script {
-            command.append("-e")
-            command.append(line)
-        }
+            "tell application \"Ghostty\"",
+            "    activate",
+            "    tell application \"System Events\"",
+            "        keystroke \"n\" using {command down}",
+            "    end tell",
+            "    delay 0.5",
+            "    tell application \"System Events\"",
+            "        keystroke \"cd '\(worktreePath)' && clear\"",
+            "        keystroke return",
+            "    end tell",
+            "end tell"
+        ].joined(separator: "\n")
+
+        let command = [Self.osascriptExecutable, "-e", script]
         print("GWM Ghostty: launching via AppleScript")
         let result = try? runner.run(command, currentDirectory: nil)
         if let result, result.exitCode == 0 {
@@ -59,39 +69,19 @@ struct GhosttyController: GhosttyControlling {
         return false
     }
 
-    private func ghosttyOpenCommand(worktreePath: String, windowTitle: String) -> String {
-        let args = [
-            Self.openExecutable,
-            "-n",
-            "-a",
-            "Ghostty.app",
-            "--args",
-            "--working-directory=\(worktreePath)",
-            "--title=\(windowTitle)"
-        ]
-        return args.map(shellEscape).joined(separator: " ")
-    }
-
-    private func shellEscape(_ value: String) -> String {
-        if value.isEmpty {
-            return "''"
-        }
-        return "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
-    }
-
-    private func focusExistingWindow(title: String) -> Bool {
+    private func focusExistingWindow(documentURL: String) -> Bool {
         guard AXIsProcessTrusted() else { return false }
         let debug = ProcessInfo.processInfo.environment["GWM_GHOSTTY_DEBUG"] == "1"
         let apps = NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleId)
         for app in apps {
-            if focusWindow(in: app, title: title, debug: debug) {
+            if focusWindow(in: app, documentURL: documentURL, debug: debug) {
                 return true
             }
         }
         return false
     }
 
-    private func focusWindow(in app: NSRunningApplication, title: String, debug: Bool) -> Bool {
+    private func focusWindow(in app: NSRunningApplication, documentURL: String, debug: Bool) -> Bool {
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
         var windowsValue: CFTypeRef?
         let result = AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &windowsValue)
@@ -100,13 +90,21 @@ struct GhosttyController: GhosttyControlling {
         }
 
         for window in windows {
-            var titleValue: CFTypeRef?
-            if AXUIElementCopyAttributeValue(window, kAXTitleAttribute as CFString, &titleValue) == .success,
-               let windowTitle = titleValue as? String {
+            // Get AXDocument attribute (working directory as file:// URL)
+            var documentValue: CFTypeRef?
+            if AXUIElementCopyAttributeValue(window, "AXDocument" as CFString, &documentValue) == .success,
+               let windowDocument = documentValue as? String {
                 if debug {
-                    print("GWM Ghostty AX window title: \(windowTitle)")
+                    var titleValue: CFTypeRef?
+                    let windowTitle = if AXUIElementCopyAttributeValue(window, kAXTitleAttribute as CFString, &titleValue) == .success,
+                                         let title = titleValue as? String {
+                        title
+                    } else {
+                        "<unknown>"
+                    }
+                    print("GWM Ghostty AX window: title=\"\(windowTitle)\" document=\"\(windowDocument)\"")
                 }
-                if windowTitle == title || windowTitle.contains(title) {
+                if windowDocument == documentURL {
                     AXUIElementPerformAction(window, kAXRaiseAction as CFString)
                     app.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
                     return true
@@ -114,9 +112,5 @@ struct GhosttyController: GhosttyControlling {
             }
         }
         return false
-    }
-
-    private func ghosttyWindowTitle(projectName: String, worktreeName: String) -> String {
-        "Worky: \(projectName) / \(worktreeName)"
     }
 }
