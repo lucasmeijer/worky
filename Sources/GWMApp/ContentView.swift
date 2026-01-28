@@ -144,23 +144,29 @@ struct ProjectSection: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .center, spacing: 8) {
             Text(project.name)
                 .font(.custom("Avenir Next", size: 16))
                 .fontWeight(.semibold)
                 .foregroundStyle(Theme.ink)
+                .frame(maxWidth: .infinity, alignment: .center)
             Button(action: onAddWorktree) {
                 HStack(spacing: 8) {
                     Image(systemName: "plus")
+                        .font(.system(size: 14, weight: .semibold))
                     Text("New Worktree")
-                        .font(.custom("Avenir Next", size: 12))
+                        .font(.custom("Avenir Next", size: 14))
                         .fontWeight(.semibold)
                 }
-                .foregroundStyle(Theme.sand)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Theme.ocean, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .foregroundStyle(Theme.ink.opacity(0.6))
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(Theme.sand.opacity(0.5), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(Theme.ink.opacity(0.08), lineWidth: 1)
+                )
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
