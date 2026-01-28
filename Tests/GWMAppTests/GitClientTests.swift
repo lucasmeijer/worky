@@ -80,6 +80,50 @@ final class GitClientTests: XCTestCase {
         XCTAssertEqual(worktrees[0].branch, "refs/heads/bergen")
     }
 
+    func testRemoveWorktreeDoesNotLeavePrunableEntry() throws {
+        let tempDir = try TemporaryDirectory()
+        let repoDir = tempDir.url.appendingPathComponent("src")
+        let bareDir = tempDir.url.appendingPathComponent("bare.git")
+        let worktreeDir = tempDir.url.appendingPathComponent("wt1")
+
+        try FileManager.default.createDirectory(at: repoDir, withIntermediateDirectories: true)
+        try runGit(["init", "-b", "main"], in: repoDir)
+        try "hello".write(to: repoDir.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
+        try runGit(["add", "README.md"], in: repoDir)
+        try runGit(["-c", "user.email=test@example.com", "-c", "user.name=Test", "commit", "-m", "init"], in: repoDir)
+        try runGit(["clone", "--bare", repoDir.path, bareDir.path], in: tempDir.url)
+
+        let client = GitClient(runner: LocalProcessRunner())
+
+        // Add a worktree
+        try client.addWorktree(bareRepoPath: bareDir.path, path: worktreeDir.path, branchName: "oslo")
+        var worktrees = try client.listWorktrees(bareRepoPath: bareDir.path)
+        XCTAssertEqual(worktrees.count, 1)
+
+        // Remove the worktree using the proper git command
+        try client.removeWorktree(bareRepoPath: bareDir.path, path: worktreeDir.path)
+
+        // Verify no worktrees are listed
+        worktrees = try client.listWorktrees(bareRepoPath: bareDir.path)
+        XCTAssertEqual(worktrees.count, 0)
+
+        // Get raw git output to verify there are no prunable entries
+        let rawOutput = try runGit(["--git-dir", bareDir.path, "worktree", "list", "--porcelain"], in: tempDir.url)
+        let allEntries = GitWorktreeParser.parsePorcelain(rawOutput)
+
+        // Filter out the bare repo itself using normalized paths (same logic as GitClient)
+        let normalizedBare = URL(fileURLWithPath: bareDir.path).resolvingSymlinksInPath().path
+        let nonBareEntries = allEntries.filter {
+            URL(fileURLWithPath: $0.path).resolvingSymlinksInPath().path != normalizedBare
+        }
+        XCTAssertEqual(nonBareEntries.count, 0, "Expected no worktree entries after proper removal")
+
+        // Double-check: if any entries exist, none should be prunable
+        for entry in nonBareEntries {
+            XCTAssertFalse(entry.isPrunable, "Found unexpected prunable entry at \(entry.path)")
+        }
+    }
+
     @discardableResult
     private func runGit(_ args: [String], in directory: URL) throws -> String {
         let runner = LocalProcessRunner()
