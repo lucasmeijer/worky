@@ -33,11 +33,26 @@ struct DefaultAppIconProvider: AppIconProviding {
 
 struct DefaultFileImageLoader: FileImageLoading {
     func loadImage(at path: String) -> NSImage? {
+        // Expand tilde and environment variables
+        let expandedPath = PathExpander.expand(path)
+
         var isDir: ObjCBool = false
-        if FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue || path.lowercased().hasSuffix(".app") {
-            return NSWorkspace.shared.icon(forFile: path)
+        let exists = FileManager.default.fileExists(atPath: expandedPath, isDirectory: &isDir)
+
+        if !exists {
+            print("GWM warning: Icon file not found: \(expandedPath)")
+            return nil
         }
-        return NSImage(contentsOfFile: path)
+
+        if isDir.boolValue || expandedPath.lowercased().hasSuffix(".app") {
+            return NSWorkspace.shared.icon(forFile: expandedPath)
+        }
+
+        let image = NSImage(contentsOfFile: expandedPath)
+        if image == nil {
+            print("GWM warning: Failed to load image from file: \(expandedPath)")
+        }
+        return image
     }
 }
 
