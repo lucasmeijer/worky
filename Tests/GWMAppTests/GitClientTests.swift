@@ -80,6 +80,35 @@ final class GitClientTests: XCTestCase {
         XCTAssertEqual(worktrees[0].branch, "refs/heads/bergen")
     }
 
+    func testRemoveWorktreeWithUncommittedChanges() throws {
+        let tempDir = try TemporaryDirectory()
+        let repoDir = tempDir.url.appendingPathComponent("src")
+        let bareDir = tempDir.url.appendingPathComponent("bare.git")
+        let worktreeDir = tempDir.url.appendingPathComponent("wt1")
+
+        try FileManager.default.createDirectory(at: repoDir, withIntermediateDirectories: true)
+        try runGit(["init", "-b", "main"], in: repoDir)
+        try "hello".write(to: repoDir.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
+        try runGit(["add", "README.md"], in: repoDir)
+        try runGit(["-c", "user.email=test@example.com", "-c", "user.name=Test", "commit", "-m", "init"], in: repoDir)
+        try runGit(["clone", "--bare", repoDir.path, bareDir.path], in: tempDir.url)
+
+        let client = GitClient(runner: LocalProcessRunner())
+
+        // Add a worktree
+        try client.addWorktree(bareRepoPath: bareDir.path, path: worktreeDir.path, branchName: "oslo")
+
+        // Add uncommitted changes
+        try "uncommitted".write(to: worktreeDir.appendingPathComponent("new_file.txt"), atomically: true, encoding: .utf8)
+
+        // Should be able to remove even with uncommitted changes (--force flag)
+        try client.removeWorktree(bareRepoPath: bareDir.path, path: worktreeDir.path)
+
+        // Verify worktree was removed
+        let worktrees = try client.listWorktrees(bareRepoPath: bareDir.path)
+        XCTAssertEqual(worktrees.count, 0)
+    }
+
     func testRemoveWorktreeDoesNotLeavePrunableEntry() throws {
         let tempDir = try TemporaryDirectory()
         let repoDir = tempDir.url.appendingPathComponent("src")

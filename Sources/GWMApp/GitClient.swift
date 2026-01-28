@@ -87,6 +87,7 @@ struct GitClient: GitClienting {
             bareRepoPath,
             "worktree",
             "remove",
+            "--force",
             path
         ], currentDirectory: nil)
 
@@ -98,6 +99,15 @@ struct GitClient: GitClienting {
 
 enum GitClientError: Error {
     case commandFailed(String)
+}
+
+extension GitClientError: LocalizedError {
+    var errorDescription: String? {
+        switch self {
+        case .commandFailed(let message):
+            return "Git command failed: \(message)"
+        }
+    }
 }
 
 private func normalizePath(_ path: String) -> String {
