@@ -17,10 +17,12 @@ struct GhosttyController: GhosttyControlling {
         _ = try? runner.run([
             "/usr/bin/env",
             "open",
+            "-n",
             "-a",
             "Ghostty.app",
             "--args",
             "--working-directory=\(worktreePath)",
+            "--macos-hidden=always",
             "--title=\(windowTitle)"
         ], currentDirectory: nil)
     }
