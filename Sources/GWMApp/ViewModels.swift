@@ -14,7 +14,20 @@ struct WorktreeViewData: Identifiable {
     let name: String
     let path: String
     let lastActivityText: String
+    let statsState: WorktreeStatsState
     let buttons: [ButtonViewData]
+
+    var stats: WorktreeStats? {
+        if case let .loaded(stats) = statsState {
+            return stats
+        }
+        return nil
+    }
+
+    var isStatsLoading: Bool {
+        if case .loading = statsState { return true }
+        return false
+    }
 }
 
 struct ButtonViewData: Identifiable {
@@ -52,8 +65,11 @@ final class ProjectsViewModel: ObservableObject {
     private let ghosttyController: GhosttyControlling
     private let commandExecutor: CommandExecuting
     private let gitClient: GitClienting
+    private let statsReader: WorktreeStatsReading
     private let cityPicker: CityNamePicker
     private let worktreeRoot: URL
+    private let statsTargetRef = "origin/main"
+    private var statsRefreshToken = UUID()
 
     init(
         loader: ProjectsLoader,
@@ -61,6 +77,7 @@ final class ProjectsViewModel: ObservableObject {
         ghosttyController: GhosttyControlling,
         commandExecutor: CommandExecuting,
         gitClient: GitClienting,
+        statsReader: WorktreeStatsReading,
         cityPicker: CityNamePicker = CityNamePicker(),
         worktreeRoot: URL = ConfigPaths.worktreeRoot
     ) {
@@ -69,6 +86,7 @@ final class ProjectsViewModel: ObservableObject {
         self.ghosttyController = ghosttyController
         self.commandExecutor = commandExecutor
         self.gitClient = gitClient
+        self.statsReader = statsReader
         self.cityPicker = cityPicker
         self.worktreeRoot = worktreeRoot
     }
@@ -91,11 +109,12 @@ final class ProjectsViewModel: ObservableObject {
                     repoPath: project.repoPath,
                     gitDirPath: project.gitDirPath,
                     worktrees: project.worktrees.map { worktree in
-                        WorktreeViewData(
+                        return WorktreeViewData(
                             id: worktree.id,
                             name: worktree.name,
                             path: worktree.path,
                             lastActivityText: formatter.localizedString(for: worktree.lastActivity, relativeTo: now),
+                            statsState: .loading,
                             buttons: worktree.buttons.map { button in
                                 ButtonViewData(
                                     id: button.id,
@@ -111,6 +130,7 @@ final class ProjectsViewModel: ObservableObject {
             withAnimation(.easeInOut(duration: 0.25)) {
                 projects = nextProjects
             }
+            refreshStats(for: nextProjects)
         } catch {
             handleError(error)
         }
@@ -164,9 +184,89 @@ final class ProjectsViewModel: ObservableObject {
         }
     }
 
+    func refreshStatsOnActivation() {
+        refreshStats(for: projects)
+    }
+
     private func handleError(_ error: Error) {
         let message = error.localizedDescription
         errorMessage = message
         print("GWM error: \(message)")
+    }
+
+    private func refreshStats(for projects: [ProjectViewData]) {
+        let worktrees = projects.flatMap(\.worktrees)
+        guard !worktrees.isEmpty else { return }
+
+        setStatsLoading(for: Set(worktrees.map(\.id)))
+
+        let token = UUID()
+        statsRefreshToken = token
+        let targetRef = statsTargetRef
+        let statsReader = self.statsReader
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            var results: [String: WorktreeStatsState] = [:]
+            for worktree in worktrees {
+                do {
+                    let stats = try statsReader.stats(forWorktreePath: worktree.path, targetRef: targetRef)
+                    results[worktree.id] = .loaded(stats)
+                } catch {
+                    results[worktree.id] = .failed
+                }
+            }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                guard self.statsRefreshToken == token else { return }
+                self.applyStats(results)
+            }
+        }
+    }
+
+    private func setStatsLoading(for worktreeIds: Set<String>) {
+        guard !worktreeIds.isEmpty else { return }
+        projects = projects.map { project in
+            let worktrees = project.worktrees.map { worktree in
+                guard worktreeIds.contains(worktree.id) else { return worktree }
+                return WorktreeViewData(
+                    id: worktree.id,
+                    name: worktree.name,
+                    path: worktree.path,
+                    lastActivityText: worktree.lastActivityText,
+                    statsState: .loading,
+                    buttons: worktree.buttons
+                )
+            }
+            return ProjectViewData(
+                id: project.id,
+                name: project.name,
+                repoPath: project.repoPath,
+                gitDirPath: project.gitDirPath,
+                worktrees: worktrees
+            )
+        }
+    }
+
+    private func applyStats(_ statsById: [String: WorktreeStatsState]) {
+        guard !statsById.isEmpty else { return }
+        projects = projects.map { project in
+            let worktrees = project.worktrees.map { worktree in
+                guard let statsState = statsById[worktree.id] else { return worktree }
+                return WorktreeViewData(
+                    id: worktree.id,
+                    name: worktree.name,
+                    path: worktree.path,
+                    lastActivityText: worktree.lastActivityText,
+                    statsState: statsState,
+                    buttons: worktree.buttons
+                )
+            }
+            return ProjectViewData(
+                id: project.id,
+                name: project.name,
+                repoPath: project.repoPath,
+                gitDirPath: project.gitDirPath,
+                worktrees: worktrees
+            )
+        }
     }
 }

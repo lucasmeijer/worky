@@ -39,6 +39,7 @@ final class ProjectsViewModelTests: XCTestCase {
             ghosttyController: FakeGhosttyController(),
             commandExecutor: FakeCommandExecutor(),
             gitClient: gitClient,
+            statsReader: FakeWorktreeStatsReader(),
             cityPicker: CityNamePicker(names: ["oslo"], randomIndex: { _ in 0 })
         )
 
@@ -81,6 +82,12 @@ private struct FakeGitClient: GitClienting {
     func listWorktrees(bareRepoPath: String) throws -> [GitWorktreeEntry] { entries }
     func addWorktree(bareRepoPath: String, path: String, branchName: String) throws {}
     func removeWorktree(bareRepoPath: String, path: String) throws {}
+}
+
+private struct FakeWorktreeStatsReader: WorktreeStatsReading, Sendable {
+    func stats(forWorktreePath worktreePath: String, targetRef: String) throws -> WorktreeStats {
+        WorktreeStats(unmergedCommits: 0, linesAdded: 0, linesRemoved: 0)
+    }
 }
 
 private struct FakeActivityReader: WorktreeActivityReading {

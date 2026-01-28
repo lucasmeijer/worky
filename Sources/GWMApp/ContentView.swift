@@ -58,6 +58,9 @@ struct ContentView: View {
                 }
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            viewModel.refreshStatsOnActivation()
+        }
     }
 
     private var header: some View {
@@ -211,9 +214,46 @@ struct WorktreeRow: View {
                 .font(.custom("Avenir Next", size: 14))
                 .fontWeight(.semibold)
                 .foregroundStyle(Theme.ink)
-            Text(worktree.lastActivityText)
+            metadataLine
                 .font(.custom("Avenir Next", size: 11))
-                .foregroundStyle(Theme.ink.opacity(0.55))
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+        }
+    }
+
+    private var metadataLine: some View {
+        HStack(spacing: 6) {
+            Text(worktree.lastActivityText)
+                .foregroundColor(Theme.ink.opacity(0.55))
+            metadataDetail
+        }
+    }
+
+    @ViewBuilder
+    private var metadataDetail: some View {
+        switch worktree.statsState {
+        case .loading:
+            HStack(spacing: 6) {
+                Text("•")
+                    .foregroundColor(Theme.ink.opacity(0.45))
+                ProgressView()
+                    .controlSize(.mini)
+                    .scaleEffect(0.7)
+            }
+        case .loaded(let stats):
+            HStack(spacing: 6) {
+                Text("• \(stats.unmergedCommitsText)")
+                    .foregroundColor(Theme.ink.opacity(0.45))
+                Text("• \(stats.lineDeltaText)")
+                    .foregroundColor(Theme.ink.opacity(0.6))
+            }
+        case .failed:
+            HStack(spacing: 6) {
+                Text("•")
+                    .foregroundColor(Theme.ink.opacity(0.45))
+                Text("—")
+                    .foregroundColor(Theme.ink.opacity(0.45))
+            }
         }
     }
 }

@@ -7,6 +7,7 @@ enum AppDependencies {
         let configStore = ProjectsConfigStore(baseDirectory: ConfigPaths.homeConfigDirectory, fileSystem: fileSystem)
         let processRunner = LocalProcessRunner()
         let gitClient = GitClient(runner: processRunner)
+        let statsReader = WorktreeStatsReader(runner: processRunner)
         let worktreeRoot = ConfigPaths.worktreeRoot
         let loader = ProjectsLoader(
             configStore: configStore,
@@ -20,6 +21,7 @@ enum AppDependencies {
             ghosttyController: GhosttyController(runner: processRunner),
             commandExecutor: CommandExecutor(runner: processRunner),
             gitClient: gitClient,
+            statsReader: statsReader,
             worktreeRoot: worktreeRoot
         )
     }

@@ -6,11 +6,11 @@ struct ProcessResult {
     let exitCode: Int32
 }
 
-protocol ProcessRunning {
+protocol ProcessRunning: Sendable {
     func run(_ command: [String], currentDirectory: URL?) throws -> ProcessResult
 }
 
-struct LocalProcessRunner: ProcessRunning {
+struct LocalProcessRunner: ProcessRunning, Sendable {
     func run(_ command: [String], currentDirectory: URL?) throws -> ProcessResult {
         guard let executable = command.first else {
             throw ProcessRunnerError.emptyCommand

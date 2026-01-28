@@ -1,7 +1,8 @@
 # Git Worktree Manager — Implementation Plan (Current State)
 
 ## Status Snapshot (Implemented)
-- **SwiftUI UI is wired to real data** (view model + loader) and no longer uses fake data.
+- **SwiftUI UI is wired to real data** (view model + loader).
+- **Worktree row metadata UI** shows live unmerged-commit counts (vs `origin/main`) and working-copy line deltas, with async refresh on startup/activation.
 - **Config + git integration** is implemented and tested.
 - **Worktree activity sorting** is implemented (HEAD log mtime fallback to worktree mtime).
 - **Default + config buttons** are implemented with icon resolution and availability checks.
