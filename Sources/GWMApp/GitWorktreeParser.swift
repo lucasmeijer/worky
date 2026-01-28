@@ -5,6 +5,7 @@ struct GitWorktreeEntry: Equatable {
     var head: String?
     var branch: String?
     var isDetached: Bool
+    var isPrunable: Bool
 }
 
 enum GitWorktreeParser {
@@ -28,7 +29,7 @@ enum GitWorktreeParser {
             if line.hasPrefix("worktree ") {
                 flush()
                 let path = line.replacingOccurrences(of: "worktree ", with: "")
-                current = GitWorktreeEntry(path: path, head: nil, branch: nil, isDetached: false)
+                current = GitWorktreeEntry(path: path, head: nil, branch: nil, isDetached: false, isPrunable: false)
                 return
             }
             if line.hasPrefix("HEAD ") {
@@ -41,6 +42,10 @@ enum GitWorktreeParser {
             }
             if line == "detached" {
                 current?.isDetached = true
+                return
+            }
+            if line.hasPrefix("prunable ") {
+                current?.isPrunable = true
                 return
             }
         }

@@ -14,8 +14,8 @@ final class ProjectsLoaderTests: XCTestCase {
             ]
         ))
         let gitClient = FakeGitClient(entries: [
-            GitWorktreeEntry(path: "/tmp/repo.git/wt1", head: nil, branch: "refs/heads/a", isDetached: false),
-            GitWorktreeEntry(path: "/tmp/repo.git/wt2", head: nil, branch: "refs/heads/b", isDetached: false)
+            GitWorktreeEntry(path: "/tmp/repo.git/wt1", head: nil, branch: "refs/heads/a", isDetached: false, isPrunable: false),
+            GitWorktreeEntry(path: "/tmp/repo.git/wt2", head: nil, branch: "refs/heads/b", isDetached: false, isPrunable: false)
         ])
         let activityReader = FakeActivityReader(dates: [
             "/tmp/repo.git/wt1": Date(timeIntervalSince1970: 100),

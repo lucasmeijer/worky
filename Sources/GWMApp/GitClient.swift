@@ -49,12 +49,14 @@ struct GitClient: GitClienting {
         let normalizedBare = normalizePath(bareRepoPath)
         return GitWorktreeParser.parsePorcelain(result.stdout)
             .filter { normalizePath($0.path) != normalizedBare }
+            .filter { !$0.isPrunable }
             .map { entry in
                 GitWorktreeEntry(
                     path: normalizePath(entry.path),
                     head: entry.head,
                     branch: entry.branch,
-                    isDetached: entry.isDetached
+                    isDetached: entry.isDetached,
+                    isPrunable: entry.isPrunable
                 )
             }
     }
