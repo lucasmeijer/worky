@@ -12,6 +12,7 @@ struct ProjectViewData: Identifiable {
 struct WorktreeViewData: Identifiable {
     let id: String
     let name: String
+    let branchName: String
     let path: String
     let lastActivityText: String
     let statsState: WorktreeStatsState
@@ -112,6 +113,7 @@ final class ProjectsViewModel: ObservableObject {
                         return WorktreeViewData(
                             id: worktree.id,
                             name: worktree.name,
+                            branchName: worktree.branchName,
                             path: worktree.path,
                             lastActivityText: formatter.localizedString(for: worktree.lastActivity, relativeTo: now),
                             statsState: .loading,
@@ -230,6 +232,7 @@ final class ProjectsViewModel: ObservableObject {
                 return WorktreeViewData(
                     id: worktree.id,
                     name: worktree.name,
+                    branchName: worktree.branchName,
                     path: worktree.path,
                     lastActivityText: worktree.lastActivityText,
                     statsState: .loading,
@@ -254,6 +257,7 @@ final class ProjectsViewModel: ObservableObject {
                 return WorktreeViewData(
                     id: worktree.id,
                     name: worktree.name,
+                    branchName: worktree.branchName,
                     path: worktree.path,
                     lastActivityText: worktree.lastActivityText,
                     statsState: statsState,

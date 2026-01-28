@@ -12,7 +12,6 @@ struct ContentView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                header
                 if let error = viewModel.errorMessage {
                     Text(error)
                         .font(.custom("Avenir Next", size: 12))
@@ -61,13 +60,6 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             viewModel.refreshStatsOnActivation()
         }
-    }
-
-    private var header: some View {
-        Text("Worky")
-            .font(.custom("Avenir Next", size: 18))
-            .fontWeight(.semibold)
-            .foregroundStyle(Theme.sand)
     }
 
     private var background: some View {
@@ -220,7 +212,7 @@ struct WorktreeRow: View {
 
     private var titleBlock: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(worktree.name)
+            Text(worktree.branchName)
                 .font(.custom("Avenir Next", size: 14))
                 .fontWeight(.semibold)
                 .foregroundStyle(Theme.ink)

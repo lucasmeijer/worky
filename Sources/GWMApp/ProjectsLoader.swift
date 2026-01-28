@@ -35,13 +35,15 @@ struct ProjectItem: Identifiable {
 struct WorktreeItem: Identifiable {
     let id: String
     let name: String
+    let branchName: String
     let path: String
     let lastActivity: Date
     let buttons: [ResolvedButton]
 
-    init(name: String, path: String, lastActivity: Date, buttons: [ResolvedButton]) {
+    init(name: String, branchName: String, path: String, lastActivity: Date, buttons: [ResolvedButton]) {
         self.id = path
         self.name = name
+        self.branchName = branchName
         self.path = path
         self.lastActivity = lastActivity
         self.buttons = buttons
@@ -85,6 +87,7 @@ struct ProjectsLoader {
                 let entries = try gitClient.listWorktrees(bareRepoPath: gitDir)
                 let worktrees = entries.map { entry in
                     let name = URL(fileURLWithPath: entry.path).lastPathComponent
+                    let branchName = extractBranchName(from: entry.branch)
                     let variables: [String: String] = [
                         "WORKTREE": entry.path,
                         "WORKTREE_NAME": name,
@@ -97,7 +100,7 @@ struct ProjectsLoader {
                         variables: variables
                     )
                     let lastActivity = (try? activityReader.lastActivityDate(forWorktreePath: entry.path)) ?? Date.distantPast
-                    return WorktreeItem(name: name, path: entry.path, lastActivity: lastActivity, buttons: buttons)
+                    return WorktreeItem(name: name, branchName: branchName, path: entry.path, lastActivity: lastActivity, buttons: buttons)
                 }
                 let sorted = worktrees.sorted { $0.lastActivity > $1.lastActivity }
                 items.append(ProjectItem(name: projectName, repoPath: repoPath, gitDirPath: gitDir, worktrees: sorted))
@@ -115,6 +118,15 @@ struct ProjectsLoader {
             return String(name.dropLast(4))
         }
         return name
+    }
+
+    private func extractBranchName(from branch: String?) -> String {
+        guard let branch else { return "detached" }
+        // Branch format is "refs/heads/branch-name"
+        if branch.hasPrefix("refs/heads/") {
+            return String(branch.dropFirst("refs/heads/".count))
+        }
+        return branch
     }
 
     private static func defaultGitDirCheck(_ path: String) -> Bool {
