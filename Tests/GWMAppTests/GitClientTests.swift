@@ -153,6 +153,35 @@ final class GitClientTests: XCTestCase {
         }
     }
 
+    func testListWorktreesExcludesMainWorkingDirectory() throws {
+        let tempDir = try TemporaryDirectory()
+        let mainRepoDir = tempDir.url.appendingPathComponent("main-repo")
+        let worktree1Dir = tempDir.url.appendingPathComponent("wt1")
+        let worktree2Dir = tempDir.url.appendingPathComponent("wt2")
+
+        // Create a normal (non-bare) git repository
+        try FileManager.default.createDirectory(at: mainRepoDir, withIntermediateDirectories: true)
+        try runGit(["init", "-b", "main"], in: mainRepoDir)
+        try "initial content".write(to: mainRepoDir.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
+        try runGit(["add", "README.md"], in: mainRepoDir)
+        try runGit(["-c", "user.email=test@example.com", "-c", "user.name=Test", "commit", "-m", "initial commit"], in: mainRepoDir)
+
+        let client = GitClient(runner: LocalProcessRunner())
+        let gitDir = try client.resolveGitDir(repoPath: mainRepoDir.path)
+
+        // Add two worktrees
+        try client.addWorktree(bareRepoPath: gitDir, path: worktree1Dir.path, branchName: "feature1")
+        try client.addWorktree(bareRepoPath: gitDir, path: worktree2Dir.path, branchName: "feature2")
+
+        // List worktrees - should only return the two worktrees, not the main directory
+        let worktrees = try client.listWorktrees(bareRepoPath: gitDir)
+
+        XCTAssertEqual(worktrees.count, 2, "Should only list the two worktrees, not the main directory")
+        XCTAssertTrue(worktrees.contains { $0.path == worktree1Dir.path }, "Should include feature1 worktree")
+        XCTAssertTrue(worktrees.contains { $0.path == worktree2Dir.path }, "Should include feature2 worktree")
+        XCTAssertFalse(worktrees.contains { $0.path == mainRepoDir.path }, "Should NOT include the main working directory")
+    }
+
     @discardableResult
     private func runGit(_ args: [String], in directory: URL) throws -> String {
         let runner = LocalProcessRunner()

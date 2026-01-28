@@ -50,6 +50,7 @@ struct GitClient: GitClienting {
         return GitWorktreeParser.parsePorcelain(result.stdout)
             .filter { normalizePath($0.path) != normalizedBare }
             .filter { !$0.isPrunable }
+            .filter { !isMainWorkingDirectory($0.path) }
             .map { entry in
                 GitWorktreeEntry(
                     path: normalizePath(entry.path),
@@ -59,6 +60,15 @@ struct GitClient: GitClienting {
                     isPrunable: entry.isPrunable
                 )
             }
+    }
+
+    private func isMainWorkingDirectory(_ path: String) -> Bool {
+        // The main working directory has a .git directory (not a file)
+        // Worktrees have a .git file that points to the worktree gitdir
+        let gitPath = URL(fileURLWithPath: path).appendingPathComponent(".git").path
+        var isDirectory: ObjCBool = false
+        let exists = FileManager.default.fileExists(atPath: gitPath, isDirectory: &isDirectory)
+        return exists && isDirectory.boolValue
     }
 
     func addWorktree(bareRepoPath: String, path: String, branchName: String) throws {
