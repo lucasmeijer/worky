@@ -2,17 +2,37 @@ import SwiftUI
 import AppKit
 
 struct ContentView: View {
+    @StateObject private var viewModel: ProjectsViewModel
     @State private var appear = false
-    private let projects = SampleData.projects
+
+    init(viewModel: ProjectsViewModel) {
+        _viewModel = StateObject(wrappedValue: viewModel)
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                ForEach(Array(projects.enumerated()), id: \.element.id) { index, project in
-                    ProjectSection(project: project)
-                        .opacity(appear ? 1 : 0)
-                        .offset(y: appear ? 0 : 20)
-                        .animation(.easeOut(duration: 0.5).delay(Double(index) * 0.08), value: appear)
+                header
+                if viewModel.isLoading {
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                        .tint(Theme.sand)
+                }
+                if let error = viewModel.errorMessage {
+                    Text(error)
+                        .font(.custom("Avenir Next", size: 12))
+                        .foregroundStyle(Theme.coral)
+                }
+                ForEach(Array(viewModel.projects.enumerated()), id: \.element.id) { index, project in
+                    ProjectSection(
+                        project: project,
+                        onAddWorktree: { viewModel.createWorktree(for: project) },
+                        onRemoveWorktree: { worktree in viewModel.removeWorktree(worktree, from: project) },
+                        onRunButton: { button, worktree in viewModel.runButton(button, worktree: worktree) }
+                    )
+                    .opacity(appear ? 1 : 0)
+                    .offset(y: appear ? 0 : 20)
+                    .animation(.easeOut(duration: 0.5).delay(Double(index) * 0.08), value: appear)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -31,9 +51,23 @@ struct ContentView: View {
             }
         )
         .frame(minHeight: 420)
-        .onAppear { appear = true }
+        .onAppear {
+            appear = true
+            viewModel.load()
+            if ProcessInfo.processInfo.environment["GWM_AUTO_QUIT"] == "1" {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                    NSApp.terminate(nil)
+                }
+            }
+        }
     }
 
+    private var header: some View {
+        Text("Git Worktree Manager")
+            .font(.custom("Avenir Next", size: 18))
+            .fontWeight(.semibold)
+            .foregroundStyle(Theme.sand)
+    }
 
     private var background: some View {
         ZStack {
@@ -57,29 +91,25 @@ struct ContentView: View {
         }
         .ignoresSafeArea()
     }
-
-    private var preferencesButton: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "gearshape.fill")
-            Text("Preferences")
-                .font(.custom("Avenir Next", size: 12))
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
-        .background(Theme.ink.opacity(0.85), in: Capsule())
-        .foregroundStyle(Theme.sand)
-    }
 }
 
 struct ProjectSection: View {
-    let project: Project
+    let project: ProjectViewData
+    let onAddWorktree: () -> Void
+    let onRemoveWorktree: (WorktreeViewData) -> Void
+    let onRunButton: (ButtonViewData, WorktreeViewData) -> Void
+    @State private var deleteTarget: WorktreeViewData?
 
     var body: some View {
         VStack(spacing: 12) {
             header
             VStack(spacing: 12) {
                 ForEach(project.worktrees) { worktree in
-                    WorktreeRow(worktree: worktree)
+                    WorktreeRow(
+                        worktree: worktree,
+                        onRemove: { deleteTarget = worktree },
+                        onRunButton: { button in onRunButton(button, worktree) }
+                    )
                 }
             }
         }
@@ -90,6 +120,22 @@ struct ProjectSection: View {
                 .stroke(Theme.ink.opacity(0.10), lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.18), radius: 18, x: 0, y: 10)
+        .alert("Delete worktree?", isPresented: Binding(
+            get: { deleteTarget != nil },
+            set: { if !$0 { deleteTarget = nil } }
+        )) {
+            Button("Delete", role: .destructive) {
+                if let worktree = deleteTarget {
+                    onRemoveWorktree(worktree)
+                }
+                deleteTarget = nil
+            }
+            Button("Cancel", role: .cancel) {
+                deleteTarget = nil
+            }
+        } message: {
+            Text("This will remove the selected worktree.")
+        }
     }
 
     private var header: some View {
@@ -98,35 +144,55 @@ struct ProjectSection: View {
                 .font(.custom("Avenir Next", size: 16))
                 .fontWeight(.semibold)
                 .foregroundStyle(Theme.ink)
-            Button(action: {}) {
+            Button(action: onAddWorktree) {
                 HStack(spacing: 8) {
                     Image(systemName: "plus")
                     Text("New Worktree")
                         .font(.custom("Avenir Next", size: 12))
                         .fontWeight(.semibold)
                 }
+                .foregroundStyle(Theme.sand)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.ocean, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .contentShape(Rectangle())
             }
-            .buttonStyle(.borderedProminent)
-            .tint(Theme.ocean)
+            .buttonStyle(.plain)
+            .accessibilityLabel("New Worktree")
         }
     }
 }
 
 struct WorktreeRow: View {
-    let worktree: Worktree
+    let worktree: WorktreeViewData
+    let onRemove: () -> Void
+    let onRunButton: (ButtonViewData) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            titleBlock
+            IconGrid(buttons: worktree.buttons, onRunButton: onRunButton)
+                .frame(maxWidth: .infinity, alignment: .leading)
             HStack {
-                titleBlock
-                IconGrid(buttons: worktree.buttons)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                
                 Spacer()
-                trashButton
+                Button(action: onRemove) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Theme.coral)
+                        .frame(width: 30, height: 30)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(Theme.sand)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(Theme.ink.opacity(0.12), lineWidth: 1)
+                        )
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Delete Worktree")
             }
         }
         .padding(.horizontal, 12)
@@ -144,51 +210,78 @@ struct WorktreeRow: View {
                 .font(.custom("Avenir Next", size: 14))
                 .fontWeight(.semibold)
                 .foregroundStyle(Theme.ink)
-            Text(worktree.lastActivity)
+            Text(worktree.lastActivityText)
                 .font(.custom("Avenir Next", size: 11))
                 .foregroundStyle(Theme.ink.opacity(0.55))
         }
     }
-
-    private var trashButton: some View {
-        Button(action: {}) {
-            Image(systemName: "trash")
-                .font(.system(size: 12, weight: .semibold))
-        }
-        .buttonStyle(.bordered)
-        .tint(Theme.coral)
-    }
 }
 
 struct IconGrid: View {
-    let buttons: [AppButton]
+    let buttons: [ButtonViewData]
+    let onRunButton: (ButtonViewData) -> Void
 
     var body: some View {
         LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: 26), spacing: 8)],
+            columns: [GridItem(.adaptive(minimum: 32), spacing: 8)],
             alignment: .leading,
             spacing: 8
         ) {
-            ForEach(buttons) { button in
-                AppIconButton(button: button)
+            ForEach(buttons, id: \.swiftUIId) { button in
+                AppIconButton(button: button, onRunButton: onRunButton)
             }
         }
     }
 }
 
 struct AppIconButton: View {
-    let button: AppButton
+    let button: ButtonViewData
+    let onRunButton: (ButtonViewData) -> Void
 
     var body: some View {
-        Button(action: {}) {
-            Image(systemName: button.systemImage)
-                .font(.system(size: 13, weight: .semibold))
-                .frame(width: 26, height: 26)
+        Button(action: { onRunButton(button) }) {
+            iconView
+                .frame(width: 30, height: 30)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(button.isEnabled ? Theme.sand : Theme.sand.opacity(0.6))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(Theme.ink.opacity(0.15), lineWidth: 1)
+                )
+                .contentShape(Rectangle())
         }
-        .buttonStyle(.bordered)
-        .tint(button.enabled ? button.tint : .gray)
-        .disabled(!button.enabled)
-        .help(button.enabled ? button.title : "\(button.title) (not installed)")
+        .buttonStyle(.plain)
+        .disabled(!button.isEnabled)
+        .opacity(button.isEnabled ? 1 : 0.45)
+        .help(button.isEnabled ? button.label : "\(button.label) (not installed)")
+        .accessibilityLabel(button.label)
+    }
+
+    @ViewBuilder
+    private var iconView: some View {
+        switch button.icon.source {
+        case .sfSymbol(let name):
+            Image(systemName: name)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(button.isEnabled ? Theme.ocean : Theme.ink.opacity(0.4))
+        case .appBundle, .file:
+            if let image = button.icon.image {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 16, height: 16)
+            } else {
+                Image(systemName: "questionmark")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Theme.ink.opacity(0.4))
+            }
+        case .missing:
+            Image(systemName: "questionmark")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Theme.ink.opacity(0.4))
+        }
     }
 }
 
@@ -245,69 +338,4 @@ struct ScrollViewConfigurator: NSViewRepresentable {
             }
         }
     }
-}
-
-enum SampleData {
-    static let projects: [Project] = [
-        Project(
-            name: "Curiosity1",
-            basePath: "~/gwm/Curiosity1",
-            worktrees: [
-                Worktree(
-                    name: "sydney",
-                    path: "~/gwm/Curiosity1/sydney",
-                    lastActivity: "5 min ago",
-                    buttons: [
-                        AppButton(title: "Ghostty", systemImage: "terminal.fill", enabled: true, tint: Color(red: 0.18, green: 0.68, blue: 0.64)),
-                        AppButton(title: "Fork", systemImage: "arrow.triangle.branch", enabled: true, tint: Color(red: 0.94, green: 0.55, blue: 0.18)),
-                        AppButton(title: "Rider", systemImage: "cube.fill", enabled: false, tint: Color(red: 0.26, green: 0.42, blue: 0.9))
-                    ]
-                ),
-                Worktree(
-                    name: "oslo",
-                    path: "~/gwm/Curiosity1/oslo",
-                    lastActivity: "1 hr ago",
-                    buttons: [
-                        AppButton(title: "Ghostty", systemImage: "terminal.fill", enabled: true, tint: Color(red: 0.18, green: 0.68, blue: 0.64)),
-                        AppButton(title: "Fork", systemImage: "arrow.triangle.branch", enabled: true, tint: Color(red: 0.94, green: 0.55, blue: 0.18)),
-                        AppButton(title: "Rider", systemImage: "cube.fill", enabled: true, tint: Color(red: 0.26, green: 0.42, blue: 0.9))
-                    ]
-                ),
-                Worktree(
-                    name: "kyoto",
-                    path: "~/gwm/Curiosity1/kyoto",
-                    lastActivity: "Yesterday",
-                    buttons: [
-                        AppButton(title: "Ghostty", systemImage: "terminal.fill", enabled: true, tint: Color(red: 0.18, green: 0.68, blue: 0.64)),
-                        AppButton(title: "Fork", systemImage: "arrow.triangle.branch", enabled: false, tint: Color(red: 0.94, green: 0.55, blue: 0.18)),
-                        AppButton(title: "Rider", systemImage: "cube.fill", enabled: false, tint: Color(red: 0.26, green: 0.42, blue: 0.9))
-                    ]
-                )
-            ]
-        ),
-        Project(
-            name: "life",
-            basePath: "~/gwm/life",
-            worktrees: [
-                Worktree(
-                    name: "helsinki",
-                    path: "~/gwm/life/helsinki",
-                    lastActivity: "3 days ago",
-                    buttons: [
-                        AppButton(title: "Ghostty", systemImage: "terminal.fill", enabled: true, tint: Color(red: 0.18, green: 0.68, blue: 0.64)),
-                        AppButton(title: "Fork", systemImage: "arrow.triangle.branch", enabled: true, tint: Color(red: 0.94, green: 0.55, blue: 0.18))
-                    ]
-                ),
-                Worktree(
-                    name: "porto",
-                    path: "~/gwm/life/porto",
-                    lastActivity: "Jan 12",
-                    buttons: [
-                        AppButton(title: "Ghostty", systemImage: "terminal.fill", enabled: false, tint: Color(red: 0.18, green: 0.68, blue: 0.64)),
-                        AppButton(title: "Fork", systemImage: "arrow.triangle.branch", enabled: true, tint: Color(red: 0.94, green: 0.55, blue: 0.18))
-                    ]
-                )
-            ]
-        )
-    ]
 }

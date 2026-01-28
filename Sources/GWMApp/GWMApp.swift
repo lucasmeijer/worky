@@ -4,7 +4,7 @@ import SwiftUI
 struct GWMApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(viewModel: AppDependencies.makeViewModel())
         }
         .windowStyle(.hiddenTitleBar)
     }
