@@ -201,7 +201,7 @@ struct WorktreeRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(Theme.worktreeRowBackgroundGradient(for: worktree.name), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(Theme.ink.opacity(0.08), lineWidth: 1)
@@ -317,6 +317,99 @@ enum Theme {
     static let ocean = Color(red: 0.08, green: 0.50, blue: 0.46)
     static let coral = Color(red: 0.90, green: 0.36, blue: 0.30)
     static let seafoam = Color(red: 0.62, green: 0.86, blue: 0.78)
+
+    private static let worktreePalette: [PaletteColor] = [
+        PaletteColor(red: 1.00, green: 0.10, blue: 0.10),
+        PaletteColor(red: 0.98, green: 0.48, blue: 0.00),
+        PaletteColor(red: 1.00, green: 0.85, blue: 0.05),
+        PaletteColor(red: 0.10, green: 0.75, blue: 0.25),
+        PaletteColor(red: 0.00, green: 0.85, blue: 0.80),
+        PaletteColor(red: 0.05, green: 0.45, blue: 1.00),
+        PaletteColor(red: 0.30, green: 0.05, blue: 1.00),
+        PaletteColor(red: 0.70, green: 0.05, blue: 0.95),
+        PaletteColor(red: 1.00, green: 0.05, blue: 0.70),
+        PaletteColor(red: 0.65, green: 0.20, blue: 0.05),
+        PaletteColor(red: 0.10, green: 0.10, blue: 0.10),
+        PaletteColor(red: 0.95, green: 0.95, blue: 0.95),
+        PaletteColor(red: 0.00, green: 0.40, blue: 0.40),
+        PaletteColor(red: 0.40, green: 0.80, blue: 0.00),
+        PaletteColor(red: 0.00, green: 0.60, blue: 1.00),
+        PaletteColor(red: 1.00, green: 0.55, blue: 0.85),
+        PaletteColor(red: 0.85, green: 0.75, blue: 0.15),
+        PaletteColor(red: 0.05, green: 0.20, blue: 0.80),
+        PaletteColor(red: 0.80, green: 0.15, blue: 0.25),
+        PaletteColor(red: 0.15, green: 0.85, blue: 0.60)
+    ]
+    private static let worktreeTintStrength = 0.34
+
+    static func worktreeRowBackgroundGradient(for worktreeName: String) -> LinearGradient {
+        let base = PaletteColor(red: 0.98, green: 0.96, blue: 0.92)
+        guard !worktreePalette.isEmpty else {
+            return LinearGradient(
+                colors: [base.color, base.color],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        }
+        let index = worktreePaletteIndex(for: worktreeName)
+        let accent = worktreePalette[index]
+        let tinted = base.mixed(with: accent, fraction: worktreeTintStrength)
+        return LinearGradient(
+            gradient: Gradient(stops: [
+                .init(color: tinted.color, location: 0.0),
+                .init(color: base.color, location: 0.5),
+                .init(color: base.color, location: 1.0)
+            ]),
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+    }
+
+    private static func worktreePaletteIndex(for worktreeName: String) -> Int {
+        let hash = stableHash(worktreeName.isEmpty ? "worktree" : worktreeName)
+        return Int(hash % UInt64(worktreePalette.count))
+    }
+
+    private static func stableHash(_ value: String) -> UInt64 {
+        var hash: UInt64 = 14695981039346656037
+        for byte in value.utf8 {
+            hash ^= UInt64(byte)
+            hash &*= 1099511628211
+        }
+        return hash
+    }
+
+    static func worktreeAccentColorRGB(for worktreeName: String) -> (Int, Int, Int) {
+        guard !worktreePalette.isEmpty else {
+            return (250, 245, 235) // base color
+        }
+        let index = worktreePaletteIndex(for: worktreeName)
+        let accent = worktreePalette[index]
+        return (
+            Int(accent.red * 255),
+            Int(accent.green * 255),
+            Int(accent.blue * 255)
+        )
+    }
+
+    private struct PaletteColor {
+        let red: Double
+        let green: Double
+        let blue: Double
+
+        func mixed(with other: PaletteColor, fraction: Double) -> PaletteColor {
+            let clamped = min(max(fraction, 0.0), 1.0)
+            return PaletteColor(
+                red: red + (other.red - red) * clamped,
+                green: green + (other.green - green) * clamped,
+                blue: blue + (other.blue - blue) * clamped
+            )
+        }
+
+        var color: Color {
+            Color(red: red, green: green, blue: blue)
+        }
+    }
 }
 
 struct WindowAccessor: NSViewRepresentable {

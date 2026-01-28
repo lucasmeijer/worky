@@ -7,6 +7,7 @@
 - **Worktree activity sorting** is implemented (HEAD log mtime fallback to worktree mtime).
 - **Default + config buttons** are implemented with icon resolution and availability checks.
 - **Plugin-based buttons** are implemented (only Ghostty is built-in; others come from repo config).
+- **Worktree rows use a left-to-right tint gradient** from a deterministic palette based on the worktree name.
 - **Ghostty open/focus** logic is implemented (AX-based focus, fallback open).
 - **Ghostty AppleScript launch** is supported (AppleScript first, fallback to `open`).
 - **New worktree + delete worktree** flows are implemented (delete includes confirmation dialog; branch kept).

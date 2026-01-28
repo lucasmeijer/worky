@@ -1,13 +1,16 @@
 #!/bin/bash
 
-# Usage: ./open_or_create_ghostty.sh <directory>
+# Usage: ./open_or_create_ghostty.sh <directory> [rgb_color]
+# rgb_color format: "R,G,B" (e.g., "255,128,64") or "#RRGGBB" (e.g., "#FF8040")
 
-if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 <directory>"
+if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
+    echo "Usage: $0 <directory> [rgb_color]"
+    echo "  rgb_color format: 'R,G,B' or '#RRGGBB'"
     exit 1
 fi
 
 WORKDIR="$1"
+BG_COLOR="$2"
 
 # Convert to absolute path
 if [[ "$WORKDIR" != /* ]]; then
@@ -21,6 +24,35 @@ fi
 if [ ! -d "$WORKDIR" ]; then
     echo "Error: Directory '$WORKDIR' does not exist"
     exit 1
+fi
+
+# Parse and validate background color if provided
+OSC_COLOR=""
+if [ -n "$BG_COLOR" ]; then
+    if [[ "$BG_COLOR" =~ ^#([0-9A-Fa-f]{6})$ ]]; then
+        # Hex format: #RRGGBB
+        HEX="${BASH_REMATCH[1]}"
+        R=$((16#${HEX:0:2}))
+        G=$((16#${HEX:2:2}))
+        B=$((16#${HEX:4:2}))
+    elif [[ "$BG_COLOR" =~ ^([0-9]{1,3}),([0-9]{1,3}),([0-9]{1,3})$ ]]; then
+        # RGB format: R,G,B
+        R="${BASH_REMATCH[1]}"
+        G="${BASH_REMATCH[2]}"
+        B="${BASH_REMATCH[3]}"
+        # Validate ranges
+        if [ "$R" -gt 255 ] || [ "$G" -gt 255 ] || [ "$B" -gt 255 ]; then
+            echo "Error: RGB values must be between 0 and 255"
+            exit 1
+        fi
+    else
+        echo "Error: Invalid color format. Use 'R,G,B' or '#RRGGBB'"
+        exit 1
+    fi
+
+    # Convert to hex format for OSC sequence
+    printf -v OSC_COLOR "#%02x%02x%02x" "$R" "$G" "$B"
+    echo "Background color: $OSC_COLOR (R=$R, G=$G, B=$B)"
 fi
 
 # Convert to file:// URL (add trailing slash like AXDocument does)
@@ -78,6 +110,15 @@ else
     # Get directory name for title
     DIR_NAME=$(basename "$WORKDIR")
 
+    # Build commands - using echo with -e to handle escape sequences
+    if [ -n "$OSC_COLOR" ]; then
+        # OSC 11 sets background color: ESC ] 11 ; COLOR BEL
+        # Use echo -e to interpret escape sequences
+        SETUP_CMD="cd '$WORKDIR' && echo -e '\\\\033]11;$OSC_COLOR\\\\007' && clear"
+    else
+        SETUP_CMD="cd '$WORKDIR' && clear"
+    fi
+
     osascript <<END
 tell application "Ghostty"
     activate
@@ -89,7 +130,7 @@ tell application "Ghostty"
     delay 0.5
 
     tell application "System Events"
-        keystroke "cd '$WORKDIR' && clear"
+        keystroke "$SETUP_CMD"
         keystroke return
     end tell
 end tell
