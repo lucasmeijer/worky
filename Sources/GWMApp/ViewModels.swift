@@ -209,8 +209,22 @@ final class ProjectsViewModel: ObservableObject {
                     return
                 }
 
+                // Detect Rider and solution files
+                var projectApps: [AppConfig] = []
+                if SolutionFileDetector.isRiderInstalled(),
+                   let solutionFile = SolutionFileDetector.findSolutionFile(in: repoPath) {
+                    let riderApp = AppConfig(
+                        id: "rider",
+                        label: "Rider",
+                        icon: IconSpec(type: .file, bundleId: nil, path: SolutionFileDetector.riderAppPath, symbol: nil),
+                        command: ["open", "-a", "Rider", "$WORKTREE/\(solutionFile)"]
+                    )
+                    projectApps.append(riderApp)
+                    print("GWM: Added Rider app for solution file: \(solutionFile)")
+                }
+
                 // Add new project
-                config.projects.append(ProjectConfig(bareRepoPath: normalizedRepoPath, apps: []))
+                config.projects.append(ProjectConfig(bareRepoPath: normalizedRepoPath, apps: projectApps))
 
                 // Save config
                 try saveConfig(config)
