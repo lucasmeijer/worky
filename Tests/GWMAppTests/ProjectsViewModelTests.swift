@@ -86,7 +86,7 @@ private struct FakeGitClient: GitClienting {
 
 private struct FakeWorktreeStatsReader: WorktreeStatsReading, Sendable {
     func stats(forWorktreePath worktreePath: String, targetRef: String) throws -> WorktreeStats {
-        WorktreeStats(unmergedCommits: 0, linesAdded: 0, linesRemoved: 0)
+        WorktreeStats(unmergedCommits: 0, filesAdded: 0, filesRemoved: 0)
     }
 }
 

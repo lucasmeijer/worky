@@ -2,11 +2,11 @@ import Foundation
 
 struct WorktreeStats: Equatable {
     let unmergedCommits: Int
-    let linesAdded: Int
-    let linesRemoved: Int
+    let filesAdded: Int
+    let filesRemoved: Int
 
     var isClean: Bool {
-        linesAdded == 0 && linesRemoved == 0
+        filesAdded == 0 && filesRemoved == 0
     }
 
     var unmergedCommitsText: String {
@@ -14,7 +14,7 @@ struct WorktreeStats: Equatable {
     }
 
     var lineDeltaText: String {
-        isClean ? "clean" : "+\(linesAdded)/-\(linesRemoved)"
+        isClean ? "clean" : "+\(filesAdded)/-\(filesRemoved)"
     }
 }
 
@@ -33,11 +33,11 @@ struct WorktreeStatsReader: WorktreeStatsReading, Sendable {
 
     func stats(forWorktreePath worktreePath: String, targetRef: String) throws -> WorktreeStats {
         let unmergedCommits = try unmergedCommits(forWorktreePath: worktreePath, targetRef: targetRef)
-        let lineStats = try workingCopyLineStats(forWorktreePath: worktreePath)
+        let fileStats = try workingCopyFileStats(forWorktreePath: worktreePath)
         return WorktreeStats(
             unmergedCommits: unmergedCommits,
-            linesAdded: lineStats.added,
-            linesRemoved: lineStats.removed
+            filesAdded: fileStats.added,
+            filesRemoved: fileStats.removed
         )
     }
 
@@ -68,50 +68,78 @@ struct WorktreeStatsReader: WorktreeStatsReading, Sendable {
         return right
     }
 
-    private func workingCopyLineStats(forWorktreePath worktreePath: String) throws -> (added: Int, removed: Int) {
-        let unstaged = try diffStats(command: [
+    private func workingCopyFileStats(forWorktreePath worktreePath: String) throws -> (added: Int, removed: Int) {
+        // Get unstaged changes (modified/deleted files)
+        let unstagedFiles = try changedFiles(command: [
             "/usr/bin/env",
             "git",
             "-C",
             worktreePath,
             "diff",
-            "--numstat"
+            "--name-status"
         ])
 
-        let staged = try diffStats(command: [
+        // Get staged changes (modified/added/deleted files)
+        let stagedFiles = try changedFiles(command: [
             "/usr/bin/env",
             "git",
             "-C",
             worktreePath,
             "diff",
             "--cached",
-            "--numstat"
+            "--name-status"
         ])
 
-        return (unstaged.added + staged.added, unstaged.removed + staged.removed)
+        // Get untracked files
+        let untrackedFiles = try untrackedFileCount(worktreePath: worktreePath)
+
+        // Combine results
+        let addedModified = unstagedFiles.added + stagedFiles.added + untrackedFiles
+        let removed = unstagedFiles.removed + stagedFiles.removed
+
+        return (addedModified, removed)
     }
 
-    private func diffStats(command: [String]) throws -> (added: Int, removed: Int) {
+    private func changedFiles(command: [String]) throws -> (added: Int, removed: Int) {
         let result = try runner.run(command, currentDirectory: nil)
 
         guard result.exitCode == 0 else {
             throw WorktreeStatsError.commandFailed(result.stderr)
         }
 
-        var addedTotal = 0
-        var removedTotal = 0
+        var addedModified = 0
+        var removed = 0
         let lines = result.stdout.split(separator: "\n")
         for line in lines {
             let parts = line.split(separator: "\t")
-            guard parts.count >= 2 else { continue }
-            if let added = Int(parts[0]) {
-                addedTotal += added
-            }
-            if let removed = Int(parts[1]) {
-                removedTotal += removed
+            guard parts.count >= 1 else { continue }
+            let status = String(parts[0])
+            // M = modified, A = added, D = deleted
+            if status == "D" {
+                removed += 1
+            } else {
+                addedModified += 1
             }
         }
-        return (addedTotal, removedTotal)
+        return (addedModified, removed)
+    }
+
+    private func untrackedFileCount(worktreePath: String) throws -> Int {
+        let result = try runner.run([
+            "/usr/bin/env",
+            "git",
+            "-C",
+            worktreePath,
+            "ls-files",
+            "--others",
+            "--exclude-standard"
+        ], currentDirectory: nil)
+
+        guard result.exitCode == 0 else {
+            throw WorktreeStatsError.commandFailed(result.stderr)
+        }
+
+        return result.stdout.split(separator: "\n").filter { !$0.isEmpty }.count
     }
 }
 
