@@ -17,6 +17,6 @@ enum ConfigPaths {
             return URL(fileURLWithPath: PathExpander.expand(override))
         }
         return FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("gwm")
+            .appendingPathComponent(".worky")
     }
 }

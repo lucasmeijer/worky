@@ -20,7 +20,7 @@
 - **Config override env:** `GWM_CONFIG_DIR` (directory containing `projects.json`).
 - **Project entry:** repo path (worktree or bare). App resolves the underlying git dir via `git rev-parse --git-common-dir`.
 - **Worktree discovery:** `git --git-dir <bare> worktree list --porcelain`.
-- **New worktree base path:** `~/gwm/<projectName>/<cityName>`.
+- **New worktree base path:** `~/.worky/<projectName>/<cityName>`.
 - **Worktree root override env:** `GWM_WORKTREE_ROOT` (base folder for new worktrees).
 - **Branch naming:** same as city/worktree name.
 - **Default buttons:** Ghostty only (special handling).
@@ -77,7 +77,7 @@
 - Uses `<gitDir>/logs/HEAD` mtime; fallback to worktree mtime.
 
 ## New Worktree Creation (Implemented)
-- Path: `~/gwm/<projectName>/<cityName>`.
+- Path: `~/.worky/<projectName>/<cityName>`.
 - City names list is embedded in code (see `Sources/GWMApp/CityNames.swift`).
 - Branch name = city name.
 

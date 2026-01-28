@@ -62,7 +62,7 @@ final class ProjectsViewModel: ObservableObject {
         commandExecutor: CommandExecuting,
         gitClient: GitClienting,
         cityPicker: CityNamePicker = CityNamePicker(),
-        worktreeRoot: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("gwm")
+        worktreeRoot: URL = ConfigPaths.worktreeRoot
     ) {
         self.loader = loader
         self.iconResolver = iconResolver
