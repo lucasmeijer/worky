@@ -22,6 +22,7 @@ enum AppDependencies {
             commandExecutor: CommandExecutor(runner: processRunner),
             gitClient: gitClient,
             statsReader: statsReader,
+            configStore: configStore,
             worktreeRoot: worktreeRoot
         )
     }

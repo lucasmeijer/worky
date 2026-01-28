@@ -4,6 +4,8 @@ import AppKit
 struct ContentView: View {
     @StateObject private var viewModel: ProjectsViewModel
     @State private var appear = false
+    @State private var showingAddProject = false
+    @State private var draggingProject: ProjectViewData?
 
     init(viewModel: ProjectsViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -17,19 +19,13 @@ struct ContentView: View {
                         .font(.custom("Avenir Next", size: 12))
                         .foregroundStyle(Theme.coral)
                 }
-                ForEach(Array(viewModel.projects.enumerated()), id: \.element.id) { index, project in
-                    ProjectSection(
-                        project: project,
-                        onAddWorktree: { viewModel.createWorktree(for: project) },
-                        onRemoveWorktree: { worktree in viewModel.removeWorktree(worktree, from: project) },
-                        onRunButton: { button, worktree in
-                            viewModel.runButton(button, worktree: worktree, project: project)
-                        }
-                    )
-                    .opacity(appear ? 1 : 0)
-                    .offset(y: appear ? 0 : 20)
-                    .animation(.easeOut(duration: 0.5).delay(Double(index) * 0.08), value: appear)
+                ForEach(viewModel.projects) { project in
+                    projectSection(for: project)
                 }
+
+                addProjectButton
+                    .opacity(appear ? 1 : 0)
+                    .animation(.easeOut(duration: 0.5).delay(Double(viewModel.projects.count) * 0.08), value: appear)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 10)
@@ -40,7 +36,6 @@ struct ContentView: View {
         .background(background)
         .overlay(
             WindowAccessor { window in
-                window.isMovableByWindowBackground = true
                 window.titleVisibility = .hidden
                 window.titlebarAppearsTransparent = true
                 window.backgroundColor = .clear
@@ -59,6 +54,61 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             viewModel.refreshStatsOnActivation()
+        }
+    }
+
+    @ViewBuilder
+    private func projectSection(for project: ProjectViewData) -> some View {
+        ProjectSection(
+            project: project,
+            draggingProject: $draggingProject,
+            onAddWorktree: { viewModel.createWorktree(for: project) },
+            onRemoveWorktree: { worktree in viewModel.removeWorktree(worktree, from: project) },
+            onRemoveProject: { viewModel.removeProject(project) },
+            onRunButton: { button, worktree in
+                viewModel.runButton(button, worktree: worktree, project: project)
+            },
+            onReorder: viewModel.reorderProjects
+        )
+        .opacity(draggingProject?.id == project.id ? 0.5 : 1.0)
+        .onDrag {
+            draggingProject = project
+            return NSItemProvider(object: project.id as NSString)
+        }
+        .onDrop(of: [.plainText], delegate: ProjectDropDelegate(
+            project: project,
+            draggingProject: $draggingProject,
+            onReorder: viewModel.reorderProjects
+        ))
+    }
+
+    private var addProjectButton: some View {
+        Button(action: { showingAddProject = true }) {
+            HStack(spacing: 6) {
+                Image(systemName: "plus")
+                    .font(.system(size: 11, weight: .semibold))
+                Text("add project")
+                    .font(.custom("Avenir Next", size: 14))
+                    .fontWeight(.semibold)
+            }
+            .foregroundStyle(Theme.ink.opacity(0.8))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+        }
+        .buttonStyle(.plain)
+        .fileImporter(
+            isPresented: $showingAddProject,
+            allowedContentTypes: [.folder],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                if let url = urls.first {
+                    viewModel.addProject(at: url.path)
+                }
+            case .failure(let error):
+                print("GWM error selecting folder: \(error)")
+            }
         }
     }
 
@@ -88,10 +138,18 @@ struct ContentView: View {
 
 struct ProjectSection: View {
     let project: ProjectViewData
+    @Binding var draggingProject: ProjectViewData?
     let onAddWorktree: () -> Void
     let onRemoveWorktree: (WorktreeViewData) -> Void
+    let onRemoveProject: () -> Void
     let onRunButton: (ButtonViewData, WorktreeViewData) -> Void
+    let onReorder: ([ProjectViewData]) -> Void
     @State private var deleteTarget: WorktreeViewData?
+    @State private var showingRemoveProjectConfirmation = false
+    @State private var isHoveringTitle = false
+    @State private var isHoveringXButton = false
+    @State private var isHoveringNewWorktree = false
+    @State private var isPressedNewWorktree = false
 
     var body: some View {
         VStack(spacing: 12) {
@@ -131,6 +189,14 @@ struct ProjectSection: View {
         } message: {
             Text("This will remove the selected worktree.")
         }
+        .alert("Remove project from list?", isPresented: $showingRemoveProjectConfirmation) {
+            Button("Remove", role: .destructive) {
+                onRemoveProject()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will only remove the project from Worky. No repositories or worktrees will be deleted from disk.")
+        }
     }
 
     private func handleRemove(_ worktree: WorktreeViewData) {
@@ -145,11 +211,33 @@ struct ProjectSection: View {
 
     private var header: some View {
         VStack(alignment: .center, spacing: 8) {
-            Text(project.name)
-                .font(.custom("Avenir Next", size: 16))
-                .fontWeight(.semibold)
-                .foregroundStyle(Theme.ink)
-                .frame(maxWidth: .infinity, alignment: .center)
+            ZStack(alignment: .topTrailing) {
+                Text(project.name)
+                    .font(.custom("Avenir Next", size: 16))
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Theme.ink)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .onHover { hovering in
+                        isHoveringTitle = hovering
+                        if hovering {
+                            NSCursor.openHand.push()
+                        } else {
+                            NSCursor.pop()
+                        }
+                    }
+
+                Button(action: { showingRemoveProjectConfirmation = true }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Theme.ink.opacity(isHoveringXButton ? 0.7 : 0.4))
+                        .frame(width: 20, height: 20)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Remove Project")
+                .onHover { hovering in
+                    isHoveringXButton = hovering
+                }
+            }
             Button(action: onAddWorktree) {
                 HStack(spacing: 8) {
                     Image(systemName: "plus")
@@ -167,11 +255,37 @@ struct ProjectSection: View {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .stroke(Theme.ink.opacity(0.08), lineWidth: 1)
                 )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(newWorktreeOutlineColor, lineWidth: newWorktreeOutlineWidth)
+                )
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .onHover { hovering in
+                isHoveringNewWorktree = hovering
+            }
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in isPressedNewWorktree = true }
+                    .onEnded { _ in isPressedNewWorktree = false }
+            )
             .accessibilityLabel("New Worktree")
         }
+    }
+
+    private var newWorktreeOutlineColor: Color {
+        if isPressedNewWorktree {
+            return Theme.ink.opacity(0.4)
+        } else if isHoveringNewWorktree {
+            return Theme.ink.opacity(0.2)
+        } else {
+            return Color.clear
+        }
+    }
+
+    private var newWorktreeOutlineWidth: CGFloat {
+        (isHoveringNewWorktree || isPressedNewWorktree) ? 2 : 0
     }
 }
 
@@ -179,6 +293,8 @@ struct WorktreeRow: View {
     let worktree: WorktreeViewData
     let onRemove: () -> Void
     let onRunButton: (ButtonViewData) -> Void
+    @State private var isTrashHovering = false
+    @State private var isTrashPressed = false
 
     var body: some View {
         HStack() {
@@ -201,10 +317,22 @@ struct WorktreeRow: View {
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
                             .stroke(Theme.ink.opacity(0.12), lineWidth: 1)
                     )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(trashOutlineColor, lineWidth: trashOutlineWidth)
+                    )
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Delete Worktree")
+            .onHover { hovering in
+                isTrashHovering = hovering
+            }
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in isTrashPressed = true }
+                    .onEnded { _ in isTrashPressed = false }
+            )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
@@ -214,6 +342,20 @@ struct WorktreeRow: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(Theme.ink.opacity(0.08), lineWidth: 1)
         )
+    }
+
+    private var trashOutlineColor: Color {
+        if isTrashPressed {
+            return Theme.ink.opacity(0.4)
+        } else if isTrashHovering {
+            return Theme.ink.opacity(0.2)
+        } else {
+            return Color.clear
+        }
+    }
+
+    private var trashOutlineWidth: CGFloat {
+        (isTrashHovering || isTrashPressed) ? 2 : 0
     }
 
     private var titleBlock: some View {
@@ -282,14 +424,43 @@ struct IconGrid: View {
 struct AppIconButton: View {
     let button: ButtonViewData
     let onRunButton: (ButtonViewData) -> Void
+    @State private var isHovering = false
+    @State private var isPressed = false
 
     var body: some View {
         Button(action: { onRunButton(button) }) {
             iconView
+                .frame(width: 32, height: 32)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .stroke(outlineColor, lineWidth: outlineWidth)
+                )
         }
         .buttonStyle(.plain)
         .help(button.label)
         .accessibilityLabel(button.label)
+        .onHover { hovering in
+            isHovering = hovering
+        }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded { _ in isPressed = false }
+        )
+    }
+
+    private var outlineColor: Color {
+        if isPressed {
+            return Theme.ink.opacity(0.4)
+        } else if isHovering {
+            return Theme.ink.opacity(0.2)
+        } else {
+            return Color.clear
+        }
+    }
+
+    private var outlineWidth: CGFloat {
+        (isHovering || isPressed) ? 2 : 0
     }
 
     @ViewBuilder
@@ -463,5 +634,23 @@ struct ScrollViewConfigurator: NSViewRepresentable {
                 scrollView.autohidesScrollers = true
             }
         }
+    }
+}
+
+struct ProjectDropDelegate: DropDelegate {
+    let project: ProjectViewData
+    @Binding var draggingProject: ProjectViewData?
+    let onReorder: ([ProjectViewData]) -> Void
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggingProject = nil
+        return true
+    }
+
+    func dropEntered(info: DropInfo) {
+        guard let dragging = draggingProject, dragging.id != project.id else {
+            return
+        }
+        onReorder([dragging, project])
     }
 }

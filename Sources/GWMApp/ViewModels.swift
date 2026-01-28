@@ -67,6 +67,7 @@ final class ProjectsViewModel: ObservableObject {
     private let commandExecutor: CommandExecuting
     private let gitClient: GitClienting
     private let statsReader: WorktreeStatsReading
+    private let configStore: ProjectsConfigStoring
     private let cityPicker: CityNamePicker
     private let worktreeRoot: URL
     private let statsTargetRef = "origin/main"
@@ -79,6 +80,7 @@ final class ProjectsViewModel: ObservableObject {
         commandExecutor: CommandExecuting,
         gitClient: GitClienting,
         statsReader: WorktreeStatsReading,
+        configStore: ProjectsConfigStoring,
         cityPicker: CityNamePicker = CityNamePicker(),
         worktreeRoot: URL = ConfigPaths.worktreeRoot
     ) {
@@ -88,6 +90,7 @@ final class ProjectsViewModel: ObservableObject {
         self.commandExecutor = commandExecutor
         self.gitClient = gitClient
         self.statsReader = statsReader
+        self.configStore = configStore
         self.cityPicker = cityPicker
         self.worktreeRoot = worktreeRoot
     }
@@ -165,6 +168,133 @@ final class ProjectsViewModel: ObservableObject {
                 handleError(error)
             }
         }
+    }
+
+    func addProject(at path: String) {
+        Task {
+            do {
+                print("GWM action: add project at \(path)")
+
+                // Resolve the git directory (handles both bare repos and worktrees)
+                let gitDir = try gitClient.resolveGitDir(repoPath: path)
+
+                // If this is a worktree, gitDir points to .git/worktrees/xxx
+                // We need to find the actual bare/main repo
+                let repoPath = try findMainRepo(gitDir: gitDir, originalPath: path)
+
+                // Load current config
+                var config = try configStore.load()
+
+                // Check if already exists
+                let normalizedRepoPath = repoPath.hasPrefix("~") ? repoPath :
+                    "~" + repoPath.replacingOccurrences(of: FileManager.default.homeDirectoryForCurrentUser.path, with: "")
+
+                if config.projects.contains(where: { $0.bareRepoPath == normalizedRepoPath }) {
+                    print("GWM: Project already exists: \(normalizedRepoPath)")
+                    return
+                }
+
+                // Add new project
+                config.projects.append(ProjectConfig(bareRepoPath: normalizedRepoPath, apps: []))
+
+                // Save config
+                try saveConfig(config)
+
+                // Refresh
+                await refresh()
+            } catch {
+                handleError(error)
+            }
+        }
+    }
+
+    func removeProject(_ project: ProjectViewData) {
+        Task {
+            do {
+                print("GWM action: remove project \(project.name)")
+
+                // Load current config
+                var config = try configStore.load()
+
+                // Remove project
+                config.projects.removeAll {
+                    PathExpander.expand($0.bareRepoPath) == project.repoPath ||
+                    $0.bareRepoPath == project.repoPath
+                }
+
+                // Save config
+                try saveConfig(config)
+
+                // Refresh
+                await refresh()
+            } catch {
+                handleError(error)
+            }
+        }
+    }
+
+    func reorderProjects(_ movingProjects: [ProjectViewData]) {
+        guard movingProjects.count == 2,
+              let fromProject = movingProjects.first,
+              let toProject = movingProjects.last,
+              let fromIndex = projects.firstIndex(where: { $0.id == fromProject.id }),
+              let toIndex = projects.firstIndex(where: { $0.id == toProject.id }) else {
+            return
+        }
+
+        // Reorder in UI
+        projects.move(fromOffsets: IndexSet(integer: fromIndex), toOffset: toIndex > fromIndex ? toIndex + 1 : toIndex)
+
+        // Save to config
+        Task {
+            do {
+                var config = try configStore.load()
+
+                // Find config indices by matching repo paths
+                guard let configFromIndex = config.projects.firstIndex(where: {
+                    PathExpander.expand($0.bareRepoPath) == fromProject.repoPath
+                }),
+                let configToIndex = config.projects.firstIndex(where: {
+                    PathExpander.expand($0.bareRepoPath) == toProject.repoPath
+                }) else {
+                    return
+                }
+
+                // Reorder in config
+                let projectToMove = config.projects[configFromIndex]
+                config.projects.remove(at: configFromIndex)
+                let insertIndex = configToIndex > configFromIndex ? configToIndex : configToIndex
+                config.projects.insert(projectToMove, at: insertIndex)
+
+                // Save config
+                try saveConfig(config)
+            } catch {
+                handleError(error)
+            }
+        }
+    }
+
+    private func findMainRepo(gitDir: String, originalPath: String) throws -> String {
+        // git rev-parse --git-common-dir returns:
+        // - For worktrees: /path/to/repo/.git
+        // - For regular repos: /path/to/repo/.git
+        // - For bare repos: /path/to/repo.git (or the bare repo path)
+
+        // Strip /.git suffix if present to get the repo root
+        if gitDir.hasSuffix("/.git") {
+            return String(gitDir.dropLast(5))
+        }
+
+        // Otherwise it's a bare repo, return as-is
+        return gitDir
+    }
+
+    private func saveConfig(_ config: ProjectsConfig) throws {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(config)
+        try FileManager.default.createDirectory(at: configStore.configURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try data.write(to: configStore.configURL, options: .atomic)
     }
 
     func runButton(_ button: ButtonViewData, worktree: WorktreeViewData, project: ProjectViewData) {

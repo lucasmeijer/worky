@@ -40,6 +40,7 @@ final class ProjectsViewModelTests: XCTestCase {
             commandExecutor: FakeCommandExecutor(),
             gitClient: gitClient,
             statsReader: FakeWorktreeStatsReader(),
+            configStore: configStore,
             cityPicker: CityNamePicker(names: ["oslo"], randomIndex: { _ in 0 })
         )
 

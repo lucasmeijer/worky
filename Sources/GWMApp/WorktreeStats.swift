@@ -14,7 +14,13 @@ struct WorktreeStats: Equatable {
     }
 
     var lineDeltaText: String {
-        isClean ? "clean" : "+\(filesAdded)/-\(filesRemoved)"
+        if isClean {
+            return "clean"
+        }
+        if filesRemoved == 0 {
+            return "+\(filesAdded)"
+        }
+        return "+\(filesAdded)/-\(filesRemoved)"
     }
 }
 
