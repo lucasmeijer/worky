@@ -7,6 +7,7 @@
 - **Default + config buttons** are implemented with icon resolution and availability checks.
 - **Plugin-based buttons** are implemented (only Ghostty is built-in; others come from repo config).
 - **Ghostty open/focus** logic is implemented (AX-based focus, fallback open).
+- **Ghostty AppleScript launch** is supported (AppleScript first, fallback to `open`).
 - **New worktree + delete worktree** flows are implemented (delete includes confirmation dialog; branch kept).
 - **Errors are printed to stdout** and shown in the UI.
 - **Auto‑quit for smoke checks** via `GWM_AUTO_QUIT=1`.
@@ -112,3 +113,4 @@
 ## Known Behavior
 - Invalid or missing bare repo paths are skipped (and errors are printed).
 - If Accessibility permissions are missing, Ghostty focus falls back to opening a new window.
+- If AppleScript launch fails, Ghostty falls back to the `open` launch path.

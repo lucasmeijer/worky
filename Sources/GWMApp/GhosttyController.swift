@@ -1,5 +1,6 @@
 import AppKit
 import ApplicationServices
+import Foundation
 
 protocol GhosttyControlling {
     func openOrFocus(projectName: String, worktreeName: String, worktreePath: String)
@@ -9,22 +10,73 @@ struct GhosttyController: GhosttyControlling {
     let runner: ProcessRunning
 
     private static let bundleId = "com.mitchellh.ghostty"
+    private static let osascriptExecutable = "/usr/bin/osascript"
+    private static let openExecutable = "/usr/bin/open"
+
     func openOrFocus(projectName: String, worktreeName: String, worktreePath: String) {
         let windowTitle = ghosttyWindowTitle(projectName: projectName, worktreeName: worktreeName)
+        print("GWM Ghostty: looking for existing window with title \"\(windowTitle)\"")
         if focusExistingWindow(title: windowTitle) {
+            print("GWM Ghostty: focused existing window")
             return
         }
-        _ = try? runner.run([
-            "/usr/bin/env",
-            "open",
+        if openWithAppleScript(worktreePath: worktreePath, windowTitle: windowTitle) {
+            return
+        }
+        let command = [
+            Self.openExecutable,
             "-n",
             "-a",
             "Ghostty.app",
             "--args",
             "--working-directory=\(worktreePath)",
-            "--macos-hidden=always",
             "--title=\(windowTitle)"
-        ], currentDirectory: nil)
+        ]
+        print("GWM Ghostty: launching new window")
+        print("GWM Ghostty: command \(command.joined(separator: " "))")
+        _ = try? runner.run(command, currentDirectory: nil)
+    }
+
+    private func openWithAppleScript(worktreePath: String, windowTitle: String) -> Bool {
+        let openCommand = ghosttyOpenCommand(worktreePath: worktreePath, windowTitle: windowTitle)
+        let script = [
+            "tell application \"Ghostty\" to activate",
+            "do shell script \"\(openCommand)\""
+        ]
+        var command = [Self.osascriptExecutable]
+        for line in script {
+            command.append("-e")
+            command.append(line)
+        }
+        print("GWM Ghostty: launching via AppleScript")
+        let result = try? runner.run(command, currentDirectory: nil)
+        if let result, result.exitCode == 0 {
+            return true
+        }
+        if ProcessInfo.processInfo.environment["GWM_GHOSTTY_DEBUG"] == "1" {
+            print("GWM Ghostty: AppleScript launch failed: \(result?.stderr ?? "unknown error")")
+        }
+        return false
+    }
+
+    private func ghosttyOpenCommand(worktreePath: String, windowTitle: String) -> String {
+        let args = [
+            Self.openExecutable,
+            "-n",
+            "-a",
+            "Ghostty.app",
+            "--args",
+            "--working-directory=\(worktreePath)",
+            "--title=\(windowTitle)"
+        ]
+        return args.map(shellEscape).joined(separator: " ")
+    }
+
+    private func shellEscape(_ value: String) -> String {
+        if value.isEmpty {
+            return "''"
+        }
+        return "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
     private func focusExistingWindow(title: String) -> Bool {
