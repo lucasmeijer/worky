@@ -61,6 +61,8 @@ final class ProjectsViewModel: ObservableObject {
     @Published var projects: [ProjectViewData] = []
     @Published var errorMessage: String?
 
+    var onAppButtonClicked: (() -> Void)?
+
     private let loader: ProjectsLoader
     private let iconResolver: IconResolver
     private let ghosttyController: GhosttyControlling
@@ -305,11 +307,13 @@ final class ProjectsViewModel: ObservableObject {
                 worktreeName: worktree.name,
                 worktreePath: worktree.path
             )
+            onAppButtonClicked?()
             return
         }
         Task {
             do {
                 try commandExecutor.execute(button.command)
+                onAppButtonClicked?()
             } catch {
                 handleError(error)
             }

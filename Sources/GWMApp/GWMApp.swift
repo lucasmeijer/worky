@@ -1,11 +1,11 @@
-import SwiftUI
+import Cocoa
 
 @main
-struct GWMApp: App {
-    var body: some Scene {
-        WindowGroup {
-            ContentView(viewModel: AppDependencies.makeViewModel())
-        }
-        .windowStyle(.hiddenTitleBar)
+class GWMApp {
+    static func main() {
+        let app = NSApplication.shared
+        let delegate = AppDelegate()
+        app.delegate = delegate
+        app.run()
     }
 }
