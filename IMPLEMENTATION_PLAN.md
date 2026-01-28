@@ -5,45 +5,56 @@
 - **Config + git integration** is implemented and tested.
 - **Worktree activity sorting** is implemented (HEAD log mtime fallback to worktree mtime).
 - **Default + config buttons** are implemented with icon resolution and availability checks.
+- **Plugin-based buttons** are implemented (only Ghostty is built-in; others come from repo config).
 - **Ghostty open/focus** logic is implemented (AX-based focus, fallback open).
 - **New worktree + delete worktree** flows are implemented (delete includes confirmation dialog; branch kept).
 - **Errors are printed to stdout** and shown in the UI.
 - **Auto‑quit for smoke checks** via `GWM_AUTO_QUIT=1`.
 - **Tests** cover all non‑UI behavior (unit + integration).
+- **Config + worktree root overrides** via env vars (for clean experiments).
+- **App bundle packaging** via `scripts/build_worky_app.sh` with Worky icon + Info.plist.
 
 ## Decisions Locked In
 - **Stack:** Swift + SwiftUI (macOS app).
 - **Config path:** `~/.config/git_worktree_manager/projects.json`.
-- **Project entry:** bare repo path (string). Bare repos track worktrees.
+- **Config override env:** `GWM_CONFIG_DIR` (directory containing `projects.json`).
+- **Project entry:** repo path (worktree or bare). App resolves the underlying git dir via `git rev-parse --git-common-dir`.
 - **Worktree discovery:** `git --git-dir <bare> worktree list --porcelain`.
 - **New worktree base path:** `~/gwm/<projectName>/<cityName>`.
+- **Worktree root override env:** `GWM_WORKTREE_ROOT` (base folder for new worktrees).
 - **Branch naming:** same as city/worktree name.
-- **Default buttons:** Ghostty + Fork.
+- **Default buttons:** Ghostty only (special handling).
 - **Icons:** app bundle, file path, or SF Symbol.
+- **Icon file path** can point at a `.app` bundle (icon extracted automatically).
+ - **Bundle output:** `dist/Worky.app` using `Resources/WorkyInfo.plist` and `Resources/AppIcon.icns`.
 - **Templating vars:** `$WORKTREE`, `$WORKTREE_NAME`, `$PROJECT`, `$PROJECT_NAME`, `$REPO`.
 - **Sorting:** most recent activity (HEAD log mtime first, fallback to worktree mtime).
 - **Window:** standard app window with hidden title bar; background drag enabled.
 
 ## Config + Schema (Implemented)
-- **Home config** (`projects.json`) default:
+- **Default config:** empty `apps` and `projects` if no config file exists yet.
+- **Home config** (`projects.json`) defines global apps + per-project apps:
   ```json
   {
-    "projects": [
-      { "bareRepoPath": "~/Curiosity.git" },
-      { "bareRepoPath": "~/life" }
-    ]
-  }
-  ```
-- **Per‑worktree config** (`.config/git_worktree_manager/config.json`):
-  ```json
-  {
-    "buttons": [
+    "apps": [
       {
-        "id": "rider",
-        "label": "Rider",
-        "icon": { "type": "appBundle", "bundleId": "com.jetbrains.rider" },
-        "availability": { "bundleId": "com.jetbrains.rider" },
-        "command": ["open", "-a", "Rider.app", "$WORKTREE/Subito/Subito.slnx"]
+        "id": "ghostty",
+        "label": "Ghostty",
+        "icon": { "type": "file", "path": "/Applications/Ghostty.app" },
+        "command": ["open", "-a", "Ghostty.app", "--args", "--working-directory=$WORKTREE"]
+      }
+    ],
+    "projects": [
+      {
+        "bareRepoPath": "~/Curiosity",
+        "apps": [
+          {
+            "id": "rider",
+            "label": "Rider",
+            "icon": { "type": "file", "path": "/Applications/Rider.app" },
+            "command": ["open", "-a", "Rider", "$WORKTREE/Subito/Subito.slnx"]
+          }
+        ]
       }
     ]
   }
@@ -51,7 +62,7 @@
 
 ## Data Model & Services (Implemented)
 - **Core services:**
-  - `ProjectsConfigStore`, `WorktreeConfigLoader`, `GitClient`, `WorktreeActivityReader`
+  - `ProjectsConfigStore`, `GitClient`, `WorktreeActivityReader`
   - `TemplateEngine`, `ButtonBuilder`, `IconResolver`, `CommandExecutor`
   - `GhosttyController`
 - **Loader:** `ProjectsLoader` builds project/worktree view data.
@@ -71,13 +82,13 @@
 - Branch name = city name.
 
 ## Buttons & Commands (Implemented)
-- **Defaults:** Ghostty + Fork.
-- **Config buttons:** merged after defaults.
+- **Defaults:** Ghostty only (special handling) but now configured globally.
+- **Config apps:** defined globally and per project in `projects.json`.
 - **Templating:** simple `$VAR` replacement.
-- **Availability:** bundle-id check; missing apps are disabled + gray.
+- **No availability checks:** buttons are always enabled; missing apps fail at launch time.
 
 ## Ghostty Window Focus (Implemented)
-- AX lookup of window title `GWM: <WorktreeName>`.
+- AX lookup of window title `Worky: <ProjectName> / <WorktreeName>`.
 - Focus if found; otherwise open a new window.
 
 ## Worktree Deletion (Implemented)
@@ -101,4 +112,3 @@
 ## Known Behavior
 - Invalid or missing bare repo paths are skipped (and errors are printed).
 - If Accessibility permissions are missing, Ghostty focus falls back to opening a new window.
-

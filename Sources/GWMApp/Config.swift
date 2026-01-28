@@ -1,11 +1,42 @@
 import Foundation
 
 struct ProjectsConfig: Codable, Equatable {
+    var apps: [AppConfig]
     var projects: [ProjectConfig]
+
+    init(apps: [AppConfig] = [], projects: [ProjectConfig]) {
+        self.apps = apps
+        self.projects = projects
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.apps = (try container.decodeIfPresent([AppConfig].self, forKey: .apps)) ?? []
+        self.projects = (try container.decodeIfPresent([ProjectConfig].self, forKey: .projects)) ?? []
+    }
 }
 
 struct ProjectConfig: Codable, Equatable {
     var bareRepoPath: String
+    var apps: [AppConfig]
+
+    init(bareRepoPath: String, apps: [AppConfig] = []) {
+        self.bareRepoPath = bareRepoPath
+        self.apps = apps
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.bareRepoPath = try container.decode(String.self, forKey: .bareRepoPath)
+        self.apps = (try container.decodeIfPresent([AppConfig].self, forKey: .apps)) ?? []
+    }
+}
+
+struct AppConfig: Codable, Equatable {
+    var id: String?
+    var label: String
+    var icon: IconSpec?
+    var command: [String]
 }
 
 protocol FileSystem {
@@ -53,10 +84,7 @@ struct ProjectsConfigStore: ProjectsConfigStoring {
         }
 
         try fileSystem.createDirectory(at: baseDirectory)
-        let defaultConfig = ProjectsConfig(projects: [
-            ProjectConfig(bareRepoPath: "~/Curiosity.git"),
-            ProjectConfig(bareRepoPath: "~/life")
-        ])
+        let defaultConfig = ProjectsConfig(apps: [], projects: [])
         let data = try JSONEncoder().encode(defaultConfig)
         try fileSystem.writeFile(data, to: configURL)
         return defaultConfig

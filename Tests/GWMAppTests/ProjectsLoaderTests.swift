@@ -3,9 +3,16 @@ import XCTest
 
 final class ProjectsLoaderTests: XCTestCase {
     func testLoadsProjectsSortedByActivity() throws {
-        let configStore = InMemoryConfigStore(config: ProjectsConfig(projects: [
-            ProjectConfig(bareRepoPath: "/tmp/repo.git")
-        ]))
+        let configStore = InMemoryConfigStore(config: ProjectsConfig(
+            apps: [
+                AppConfig(id: "ghostty", label: "Ghostty", icon: nil, command: ["open", "$WORKTREE"])
+            ],
+            projects: [
+                ProjectConfig(bareRepoPath: "/tmp/repo.git", apps: [
+                    AppConfig(id: "rider", label: "Rider", icon: nil, command: ["echo", "$WORKTREE_NAME"])
+                ])
+            ]
+        ))
         let gitClient = FakeGitClient(entries: [
             GitWorktreeEntry(path: "/tmp/repo.git/wt1", head: nil, branch: "refs/heads/a", isDetached: false),
             GitWorktreeEntry(path: "/tmp/repo.git/wt2", head: nil, branch: "refs/heads/b", isDetached: false)
@@ -18,9 +25,8 @@ final class ProjectsLoaderTests: XCTestCase {
             configStore: configStore,
             gitClient: gitClient,
             activityReader: activityReader,
-            worktreeConfigLoader: FakeWorktreeConfigLoader(),
-            buttonBuilder: ButtonBuilder(availability: FakeAvailability(availableIds: [])),
-            isValidBareRepo: { _ in true }
+            buttonBuilder: ButtonBuilder(),
+            isValidGitDir: { _ in true }
         )
 
         let projects = try loader.loadProjects()
@@ -29,6 +35,7 @@ final class ProjectsLoaderTests: XCTestCase {
         XCTAssertEqual(projects[0].worktrees.count, 2)
         XCTAssertEqual(projects[0].worktrees[0].name, "wt2")
         XCTAssertEqual(projects[0].worktrees[1].name, "wt1")
+        XCTAssertEqual(projects[0].worktrees[0].buttons.map { $0.label }, ["Ghostty", "Rider"])
     }
 }
 
@@ -40,6 +47,7 @@ private struct InMemoryConfigStore: ProjectsConfigStoring {
 
 private struct FakeGitClient: GitClienting {
     let entries: [GitWorktreeEntry]
+    func resolveGitDir(repoPath: String) throws -> String { repoPath }
     func listWorktrees(bareRepoPath: String) throws -> [GitWorktreeEntry] { entries }
     func addWorktree(bareRepoPath: String, path: String, branchName: String) throws {}
     func removeWorktree(bareRepoPath: String, path: String) throws {}
@@ -49,17 +57,5 @@ private struct FakeActivityReader: WorktreeActivityReading {
     let dates: [String: Date]
     func lastActivityDate(forWorktreePath worktreePath: String) throws -> Date {
         dates[worktreePath] ?? Date()
-    }
-}
-
-private struct FakeWorktreeConfigLoader: WorktreeConfigLoading {
-    func load(worktreePath: String) throws -> WorktreeConfig { WorktreeConfig() }
-}
-
-private struct FakeAvailability: AppAvailabilityChecking {
-    let availableIds: Set<String>
-    func isAvailable(_ spec: AvailabilitySpec?) -> Bool {
-        guard let spec else { return true }
-        return availableIds.contains(spec.bundleId)
     }
 }

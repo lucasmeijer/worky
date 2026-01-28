@@ -11,7 +11,8 @@ final class ProjectsConfigStoreTests: XCTestCase {
 
         let config = try store.load()
 
-        XCTAssertEqual(config.projects.map { $0.bareRepoPath }, ["~/Curiosity.git", "~/life"])
+        XCTAssertTrue(config.projects.isEmpty)
+        XCTAssertTrue(config.apps.isEmpty)
         let stored = try Data(contentsOf: store.configURL)
         XCTAssertFalse(stored.isEmpty)
     }
@@ -22,13 +23,17 @@ final class ProjectsConfigStoreTests: XCTestCase {
             baseDirectory: tempDir.url,
             fileSystem: LocalFileSystem()
         )
-        let custom = ProjectsConfig(projects: [ProjectConfig(bareRepoPath: "~/custom")])
+        let custom = ProjectsConfig(
+            apps: [AppConfig(id: "ghostty", label: "Ghostty", icon: nil, command: ["open"])],
+            projects: [ProjectConfig(bareRepoPath: "~/custom")]
+        )
         let data = try JSONEncoder().encode(custom)
         try data.write(to: store.configURL, options: .atomic)
 
         let loaded = try store.load()
 
         XCTAssertEqual(loaded.projects.map { $0.bareRepoPath }, ["~/custom"])
+        XCTAssertEqual(loaded.apps.map { $0.id ?? "" }, ["ghostty"])
     }
 }
 

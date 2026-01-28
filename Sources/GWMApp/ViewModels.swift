@@ -2,14 +2,15 @@ import Foundation
 import SwiftUI
 
 struct ProjectViewData: Identifiable {
-    let id: UUID
+    let id: String
     let name: String
-    let bareRepoPath: String
+    let repoPath: String
+    let gitDirPath: String
     let worktrees: [WorktreeViewData]
 }
 
 struct WorktreeViewData: Identifiable {
-    let id: UUID
+    let id: String
     let name: String
     let path: String
     let lastActivityText: String
@@ -20,7 +21,6 @@ struct ButtonViewData: Identifiable {
     let id: String
     let label: String
     let icon: IconPayload
-    let isEnabled: Bool
     let command: [String]
 
     var stableId: String { id }
@@ -46,7 +46,6 @@ struct ButtonViewData: Identifiable {
 final class ProjectsViewModel: ObservableObject {
     @Published var projects: [ProjectViewData] = []
     @Published var errorMessage: String?
-    @Published var isLoading = false
 
     private let loader: ProjectsLoader
     private let iconResolver: IconResolver
@@ -79,18 +78,18 @@ final class ProjectsViewModel: ObservableObject {
     }
 
     func refresh() async {
-        isLoading = true
         errorMessage = nil
         do {
             let items = try loader.loadProjects()
             let formatter = RelativeDateTimeFormatter()
             formatter.unitsStyle = .abbreviated
             let now = Date()
-            projects = items.map { project in
+            let nextProjects = items.map { project in
                 ProjectViewData(
                     id: project.id,
                     name: project.name,
-                    bareRepoPath: project.bareRepoPath,
+                    repoPath: project.repoPath,
+                    gitDirPath: project.gitDirPath,
                     worktrees: project.worktrees.map { worktree in
                         WorktreeViewData(
                             id: worktree.id,
@@ -102,7 +101,6 @@ final class ProjectsViewModel: ObservableObject {
                                     id: button.id,
                                     label: button.label,
                                     icon: iconResolver.resolve(button.icon),
-                                    isEnabled: button.isEnabled,
                                     command: button.command
                                 )
                             }
@@ -110,10 +108,12 @@ final class ProjectsViewModel: ObservableObject {
                     }
                 )
             }
+            withAnimation(.easeInOut(duration: 0.25)) {
+                projects = nextProjects
+            }
         } catch {
             handleError(error)
         }
-        isLoading = false
     }
 
     func createWorktree(for project: ProjectViewData) {
@@ -125,7 +125,7 @@ final class ProjectsViewModel: ObservableObject {
                 let projectRoot = worktreeRoot.appendingPathComponent(project.name)
                 try FileManager.default.createDirectory(at: projectRoot, withIntermediateDirectories: true)
                 let worktreePath = projectRoot.appendingPathComponent(city).path
-                try gitClient.addWorktree(bareRepoPath: project.bareRepoPath, path: worktreePath, branchName: city)
+                try gitClient.addWorktree(bareRepoPath: project.gitDirPath, path: worktreePath, branchName: city)
                 await refresh()
             } catch {
                 handleError(error)
@@ -137,7 +137,7 @@ final class ProjectsViewModel: ObservableObject {
         Task {
             do {
                 print("GWM action: remove worktree \(worktree.path)")
-                try gitClient.removeWorktree(bareRepoPath: project.bareRepoPath, path: worktree.path)
+                try gitClient.removeWorktree(bareRepoPath: project.gitDirPath, path: worktree.path)
                 await refresh()
             } catch {
                 handleError(error)
@@ -145,10 +145,14 @@ final class ProjectsViewModel: ObservableObject {
         }
     }
 
-    func runButton(_ button: ButtonViewData, worktree: WorktreeViewData) {
+    func runButton(_ button: ButtonViewData, worktree: WorktreeViewData, project: ProjectViewData) {
         print("GWM action: run button \(button.id) for \(worktree.name)")
         if button.id == "ghostty" {
-            ghosttyController.openOrFocus(worktreePath: worktree.path, title: worktree.name)
+            ghosttyController.openOrFocus(
+                projectName: project.name,
+                worktreeName: worktree.name,
+                worktreePath: worktree.path
+            )
             return
         }
         Task {

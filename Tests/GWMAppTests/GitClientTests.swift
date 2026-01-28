@@ -28,6 +28,24 @@ final class GitClientTests: XCTestCase {
         XCTAssertEqual(worktrees.count, 0)
     }
 
+    func testResolveGitDirForBareAndNonBare() throws {
+        let tempDir = try TemporaryDirectory()
+        let repoDir = tempDir.url.appendingPathComponent("repo")
+        let bareDir = tempDir.url.appendingPathComponent("bare.git")
+
+        try FileManager.default.createDirectory(at: repoDir, withIntermediateDirectories: true)
+        try runGit(["init"], in: repoDir)
+        try runGit(["clone", "--bare", repoDir.path, bareDir.path], in: tempDir.url)
+
+        let client = GitClient(runner: LocalProcessRunner())
+
+        let nonBareGitDir = try client.resolveGitDir(repoPath: repoDir.path)
+        XCTAssertEqual(nonBareGitDir, repoDir.appendingPathComponent(".git").path)
+
+        let bareGitDir = try client.resolveGitDir(repoPath: bareDir.path)
+        XCTAssertEqual(bareGitDir, bareDir.path)
+    }
+
     @discardableResult
     private func runGit(_ args: [String], in directory: URL) throws -> String {
         let runner = LocalProcessRunner()

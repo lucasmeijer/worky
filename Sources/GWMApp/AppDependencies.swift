@@ -7,19 +7,20 @@ enum AppDependencies {
         let configStore = ProjectsConfigStore(baseDirectory: ConfigPaths.homeConfigDirectory, fileSystem: fileSystem)
         let processRunner = LocalProcessRunner()
         let gitClient = GitClient(runner: processRunner)
+        let worktreeRoot = ConfigPaths.worktreeRoot
         let loader = ProjectsLoader(
             configStore: configStore,
             gitClient: gitClient,
             activityReader: WorktreeActivityReader(fileSystem: fileSystem),
-            worktreeConfigLoader: WorktreeConfigLoader(fileSystem: fileSystem),
-            buttonBuilder: ButtonBuilder(availability: AppAvailabilityChecker())
+            buttonBuilder: ButtonBuilder()
         )
         return ProjectsViewModel(
             loader: loader,
             iconResolver: IconResolver(),
             ghosttyController: GhosttyController(runner: processRunner),
             commandExecutor: CommandExecutor(runner: processRunner),
-            gitClient: gitClient
+            gitClient: gitClient,
+            worktreeRoot: worktreeRoot
         )
     }
 }

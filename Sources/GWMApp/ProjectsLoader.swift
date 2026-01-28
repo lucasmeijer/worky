@@ -9,39 +9,38 @@ protocol GitClienting {
     func listWorktrees(bareRepoPath: String) throws -> [GitWorktreeEntry]
     func addWorktree(bareRepoPath: String, path: String, branchName: String) throws
     func removeWorktree(bareRepoPath: String, path: String) throws
+    func resolveGitDir(repoPath: String) throws -> String
 }
 
 protocol WorktreeActivityReading {
     func lastActivityDate(forWorktreePath worktreePath: String) throws -> Date
 }
 
-protocol WorktreeConfigLoading {
-    func load(worktreePath: String) throws -> WorktreeConfig
-}
-
 struct ProjectItem: Identifiable {
-    let id: UUID
+    let id: String
     let name: String
-    let bareRepoPath: String
+    let repoPath: String
+    let gitDirPath: String
     var worktrees: [WorktreeItem]
 
-    init(name: String, bareRepoPath: String, worktrees: [WorktreeItem]) {
-        self.id = UUID()
+    init(name: String, repoPath: String, gitDirPath: String, worktrees: [WorktreeItem]) {
+        self.id = gitDirPath
         self.name = name
-        self.bareRepoPath = bareRepoPath
+        self.repoPath = repoPath
+        self.gitDirPath = gitDirPath
         self.worktrees = worktrees
     }
 }
 
 struct WorktreeItem: Identifiable {
-    let id: UUID
+    let id: String
     let name: String
     let path: String
     let lastActivity: Date
     let buttons: [ResolvedButton]
 
     init(name: String, path: String, lastActivity: Date, buttons: [ResolvedButton]) {
-        self.id = UUID()
+        self.id = path
         self.name = name
         self.path = path
         self.lastActivity = lastActivity
@@ -53,58 +52,55 @@ struct ProjectsLoader {
     let configStore: ProjectsConfigStoring
     let gitClient: GitClienting
     let activityReader: WorktreeActivityReading
-    let worktreeConfigLoader: WorktreeConfigLoading
     let buttonBuilder: ButtonBuilder
     let pathExpander: (String) -> String
-    let isValidBareRepo: (String) -> Bool
+    let isValidGitDir: (String) -> Bool
 
     init(
         configStore: ProjectsConfigStoring,
         gitClient: GitClienting,
         activityReader: WorktreeActivityReading,
-        worktreeConfigLoader: WorktreeConfigLoading,
         buttonBuilder: ButtonBuilder,
         pathExpander: @escaping (String) -> String = PathExpander.expand,
-        isValidBareRepo: @escaping (String) -> Bool = ProjectsLoader.defaultBareRepoCheck
+        isValidGitDir: @escaping (String) -> Bool = ProjectsLoader.defaultGitDirCheck
     ) {
         self.configStore = configStore
         self.gitClient = gitClient
         self.activityReader = activityReader
-        self.worktreeConfigLoader = worktreeConfigLoader
         self.buttonBuilder = buttonBuilder
         self.pathExpander = pathExpander
-        self.isValidBareRepo = isValidBareRepo
+        self.isValidGitDir = isValidGitDir
     }
 
     func loadProjects() throws -> [ProjectItem] {
         let config = try configStore.load()
+        let globalApps = config.apps
         var items: [ProjectItem] = []
         for projectConfig in config.projects {
-            let barePath = pathExpander(projectConfig.bareRepoPath)
-            guard isValidBareRepo(barePath) else { continue }
-            let projectName = projectName(from: barePath)
+            let repoPath = pathExpander(projectConfig.bareRepoPath)
+            guard let gitDir = try? gitClient.resolveGitDir(repoPath: repoPath) else { continue }
+            guard isValidGitDir(gitDir) else { continue }
+            let projectName = projectName(from: repoPath)
             do {
-                let entries = try gitClient.listWorktrees(bareRepoPath: barePath)
+                let entries = try gitClient.listWorktrees(bareRepoPath: gitDir)
                 let worktrees = entries.map { entry in
                     let name = URL(fileURLWithPath: entry.path).lastPathComponent
-                    let config = (try? worktreeConfigLoader.load(worktreePath: entry.path)) ?? WorktreeConfig()
                     let variables: [String: String] = [
                         "WORKTREE": entry.path,
                         "WORKTREE_NAME": name,
-                        "PROJECT": barePath,
+                        "PROJECT": repoPath,
                         "PROJECT_NAME": projectName,
-                        "REPO": barePath
+                        "REPO": repoPath
                     ]
                     let buttons = buttonBuilder.build(
-                        defaults: DefaultButtons.all,
-                        configButtons: config.buttons,
+                        apps: globalApps + projectConfig.apps,
                         variables: variables
                     )
                     let lastActivity = (try? activityReader.lastActivityDate(forWorktreePath: entry.path)) ?? Date.distantPast
                     return WorktreeItem(name: name, path: entry.path, lastActivity: lastActivity, buttons: buttons)
                 }
                 let sorted = worktrees.sorted { $0.lastActivity > $1.lastActivity }
-                items.append(ProjectItem(name: projectName, bareRepoPath: barePath, worktrees: sorted))
+                items.append(ProjectItem(name: projectName, repoPath: repoPath, gitDirPath: gitDir, worktrees: sorted))
             } catch {
                 print("GWM error: \(error.localizedDescription)")
             }
@@ -121,7 +117,7 @@ struct ProjectsLoader {
         return name
     }
 
-    private static func defaultBareRepoCheck(_ path: String) -> Bool {
+    private static func defaultGitDirCheck(_ path: String) -> Bool {
         let head = URL(fileURLWithPath: path).appendingPathComponent("HEAD").path
         let objects = URL(fileURLWithPath: path).appendingPathComponent("objects").path
         var isDir: ObjCBool = false

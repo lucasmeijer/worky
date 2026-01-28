@@ -1,0 +1,8 @@
+#!/bin/zsh
+set -euo pipefail
+swift build -c release --product GWMApp
+osascript -e 'tell application id "com.lucasmeijer.worky" to quit' >/dev/null 2>&1 || true
+pkill -f "dist/Worky.app/Contents/MacOS/GWMApp" >/dev/null 2>&1 || true
+sleep 0.5
+scripts/build_worky_app.sh
+open dist/Worky.app

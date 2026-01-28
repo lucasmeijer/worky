@@ -3,6 +3,34 @@ import Foundation
 struct GitClient: GitClienting {
     let runner: ProcessRunning
 
+    func resolveGitDir(repoPath: String) throws -> String {
+        let result = try runner.run([
+            "/usr/bin/env",
+            "git",
+            "-C",
+            repoPath,
+            "rev-parse",
+            "--git-common-dir"
+        ], currentDirectory: nil)
+
+        guard result.exitCode == 0 else {
+            throw GitClientError.commandFailed(result.stderr)
+        }
+
+        let raw = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !raw.isEmpty else {
+            throw GitClientError.commandFailed("Empty git dir")
+        }
+        if raw == "." {
+            return normalizePath(repoPath)
+        }
+        if raw.hasPrefix("/") {
+            return normalizePath(raw)
+        }
+        let resolved = URL(fileURLWithPath: repoPath).appendingPathComponent(raw).path
+        return normalizePath(resolved)
+    }
+
     func listWorktrees(bareRepoPath: String) throws -> [GitWorktreeEntry] {
         let result = try runner.run([
             "/usr/bin/env",

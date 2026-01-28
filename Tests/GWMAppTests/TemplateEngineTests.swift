@@ -10,14 +10,22 @@ final class TemplateEngineTests: XCTestCase {
             "PROJECT_NAME": "Curiosity1",
             "REPO": "/tmp/repo.git"
         ]
-        let input = ["open", "-a", "Ghostty.app", "--working-directory=$WORKTREE", "--title=GWM: $WORKTREE_NAME", "--repo=$REPO", "--project=$PROJECT_NAME"]
+        let input = [
+            "open",
+            "-a",
+            "Ghostty.app",
+            "--working-directory=$WORKTREE",
+            "--title=Worky: $PROJECT_NAME / $WORKTREE_NAME",
+            "--repo=$REPO",
+            "--project=$PROJECT_NAME"
+        ]
         let output = engine.apply(input, variables: vars)
         XCTAssertEqual(output, [
             "open",
             "-a",
             "Ghostty.app",
             "--working-directory=/tmp/worktree",
-            "--title=GWM: oslo",
+            "--title=Worky: Curiosity1 / oslo",
             "--repo=/tmp/repo.git",
             "--project=Curiosity1"
         ])

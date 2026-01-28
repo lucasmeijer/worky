@@ -13,11 +13,6 @@ struct ContentView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 header
-                if viewModel.isLoading {
-                    ProgressView()
-                        .progressViewStyle(.circular)
-                        .tint(Theme.sand)
-                }
                 if let error = viewModel.errorMessage {
                     Text(error)
                         .font(.custom("Avenir Next", size: 12))
@@ -28,7 +23,9 @@ struct ContentView: View {
                         project: project,
                         onAddWorktree: { viewModel.createWorktree(for: project) },
                         onRemoveWorktree: { worktree in viewModel.removeWorktree(worktree, from: project) },
-                        onRunButton: { button, worktree in viewModel.runButton(button, worktree: worktree) }
+                        onRunButton: { button, worktree in
+                            viewModel.runButton(button, worktree: worktree, project: project)
+                        }
                     )
                     .opacity(appear ? 1 : 0)
                     .offset(y: appear ? 0 : 20)
@@ -40,7 +37,7 @@ struct ContentView: View {
             .padding(.vertical, 16)
         }
         .scrollIndicators(.hidden)
-        .background(ScrollViewConfigurator())
+        .background(ScrollViewConfigurator().allowsHitTesting(false))
         .background(background)
         .overlay(
             WindowAccessor { window in
@@ -49,6 +46,7 @@ struct ContentView: View {
                 window.titlebarAppearsTransparent = true
                 window.backgroundColor = .clear
             }
+            .allowsHitTesting(false)
         )
         .frame(minHeight: 420)
         .onAppear {
@@ -63,7 +61,7 @@ struct ContentView: View {
     }
 
     private var header: some View {
-        Text("Git Worktree Manager")
+        Text("Worky")
             .font(.custom("Avenir Next", size: 18))
             .fontWeight(.semibold)
             .foregroundStyle(Theme.sand)
@@ -110,8 +108,10 @@ struct ProjectSection: View {
                         onRemove: { deleteTarget = worktree },
                         onRunButton: { button in onRunButton(button, worktree) }
                     )
+                    .transition(.opacity)
                 }
             }
+            .animation(.easeInOut(duration: 0.25), value: project.worktrees.map(\.id))
         }
         .padding(10)
         .background(Theme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
@@ -170,30 +170,28 @@ struct WorktreeRow: View {
     let onRunButton: (ButtonViewData) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        HStack() {
             titleBlock
             IconGrid(buttons: worktree.buttons, onRunButton: onRunButton)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            HStack {
-                Spacer()
+            
                 Button(action: onRemove) {
                     Image(systemName: "trash")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(Theme.coral)
-                        .frame(width: 30, height: 30)
+                        .frame(width: 32, height: 32)
                         .background(
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
                                 .fill(Theme.sand)
                         )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(Theme.ink.opacity(0.12), lineWidth: 1)
-                        )
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Delete Worktree")
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(Theme.ink.opacity(0.12), lineWidth: 1)
+                    )
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Delete Worktree")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
@@ -222,11 +220,7 @@ struct IconGrid: View {
     let onRunButton: (ButtonViewData) -> Void
 
     var body: some View {
-        LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: 32), spacing: 8)],
-            alignment: .leading,
-            spacing: 8
-        ) {
+        HStack(spacing: 8) {
             ForEach(buttons, id: \.swiftUIId) { button in
                 AppIconButton(button: button, onRunButton: onRunButton)
             }
@@ -241,21 +235,9 @@ struct AppIconButton: View {
     var body: some View {
         Button(action: { onRunButton(button) }) {
             iconView
-                .frame(width: 30, height: 30)
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(button.isEnabled ? Theme.sand : Theme.sand.opacity(0.6))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(Theme.ink.opacity(0.15), lineWidth: 1)
-                )
-                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(!button.isEnabled)
-        .opacity(button.isEnabled ? 1 : 0.45)
-        .help(button.isEnabled ? button.label : "\(button.label) (not installed)")
+        .help(button.label)
         .accessibilityLabel(button.label)
     }
 
@@ -264,22 +246,22 @@ struct AppIconButton: View {
         switch button.icon.source {
         case .sfSymbol(let name):
             Image(systemName: name)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(button.isEnabled ? Theme.ocean : Theme.ink.opacity(0.4))
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(Theme.ocean)
         case .appBundle, .file:
             if let image = button.icon.image {
                 Image(nsImage: image)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 16, height: 16)
+                    .frame(width: 32, height: 32)
             } else {
                 Image(systemName: "questionmark")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(Theme.ink.opacity(0.4))
             }
         case .missing:
             Image(systemName: "questionmark")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: 20, weight: .semibold))
                 .foregroundStyle(Theme.ink.opacity(0.4))
         }
     }

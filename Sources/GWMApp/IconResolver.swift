@@ -33,7 +33,11 @@ struct DefaultAppIconProvider: AppIconProviding {
 
 struct DefaultFileImageLoader: FileImageLoading {
     func loadImage(at path: String) -> NSImage? {
-        NSImage(contentsOfFile: path)
+        var isDir: ObjCBool = false
+        if FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue || path.lowercased().hasSuffix(".app") {
+            return NSWorkspace.shared.icon(forFile: path)
+        }
+        return NSImage(contentsOfFile: path)
     }
 }
 
