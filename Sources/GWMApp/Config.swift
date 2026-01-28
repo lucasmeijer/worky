@@ -3,16 +3,19 @@ import Foundation
 struct ProjectsConfig: Codable, Equatable {
     var apps: [AppConfig]
     var projects: [ProjectConfig]
+    var dontAutoAdd: [String]
 
-    init(apps: [AppConfig] = [], projects: [ProjectConfig]) {
+    init(apps: [AppConfig] = [], projects: [ProjectConfig], dontAutoAdd: [String] = []) {
         self.apps = apps
         self.projects = projects
+        self.dontAutoAdd = dontAutoAdd
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.apps = (try container.decodeIfPresent([AppConfig].self, forKey: .apps)) ?? []
         self.projects = (try container.decodeIfPresent([ProjectConfig].self, forKey: .projects)) ?? []
+        self.dontAutoAdd = (try container.decodeIfPresent([String].self, forKey: .dontAutoAdd)) ?? []
     }
 }
 

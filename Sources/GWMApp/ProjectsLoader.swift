@@ -76,7 +76,11 @@ struct ProjectsLoader {
 
     func loadProjects() throws -> [ProjectItem] {
         let config = try configStore.load()
-        let globalApps = config.apps
+
+        // Merge builtin apps with config apps
+        let builtinApps = BuiltinApps.detectInstalled(excluding: Set(config.dontAutoAdd))
+        let globalApps = builtinApps + config.apps
+
         var items: [ProjectItem] = []
         for projectConfig in config.projects {
             let repoPath = pathExpander(projectConfig.bareRepoPath)

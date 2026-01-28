@@ -11,7 +11,8 @@ final class ProjectsLoaderTests: XCTestCase {
                 ProjectConfig(bareRepoPath: "/tmp/repo.git", apps: [
                     AppConfig(id: "rider", label: "Rider", icon: nil, command: ["echo", "$WORKTREE_NAME"])
                 ])
-            ]
+            ],
+            dontAutoAdd: ["ghostty", "fork", "vscode"]
         ))
         let gitClient = FakeGitClient(entries: [
             GitWorktreeEntry(path: "/tmp/repo.git/wt1", head: nil, branch: "refs/heads/a", isDetached: false, isPrunable: false),
