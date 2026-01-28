@@ -9,6 +9,9 @@ enum AppDependencies {
         let gitClient = GitClient(runner: processRunner)
         let statsReader = WorktreeStatsReader(runner: processRunner)
         let worktreeRoot = ConfigPaths.worktreeRoot
+        let busyStore = BusyClaimStore()
+        let busyServer = BusyIPCServer(socketURL: ConfigPaths.ipcSocketURL, store: busyStore)
+        busyServer.start()
         let loader = ProjectsLoader(
             configStore: configStore,
             gitClient: gitClient,
@@ -23,6 +26,8 @@ enum AppDependencies {
             gitClient: gitClient,
             statsReader: statsReader,
             configStore: configStore,
+            busyStore: busyStore,
+            busyServer: busyServer,
             worktreeRoot: worktreeRoot
         )
     }

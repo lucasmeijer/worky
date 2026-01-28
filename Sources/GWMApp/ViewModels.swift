@@ -60,6 +60,7 @@ struct ButtonViewData: Identifiable {
 final class ProjectsViewModel: ObservableObject {
     @Published var projects: [ProjectViewData] = []
     @Published var errorMessage: String?
+    @Published var busyClaimsByPath: [String: [BusyClaim]] = [:]
 
     var onAppButtonClicked: (() -> Void)?
 
@@ -70,6 +71,8 @@ final class ProjectsViewModel: ObservableObject {
     private let gitClient: GitClienting
     private let statsReader: WorktreeStatsReading
     private let configStore: ProjectsConfigStoring
+    private let busyStore: BusyClaimStore
+    private let busyServer: BusyIPCServer
     private let cityPicker: CityNamePicker
     private let worktreeRoot: URL
     private let statsTargetRef = "origin/main"
@@ -83,6 +86,8 @@ final class ProjectsViewModel: ObservableObject {
         gitClient: GitClienting,
         statsReader: WorktreeStatsReading,
         configStore: ProjectsConfigStoring,
+        busyStore: BusyClaimStore,
+        busyServer: BusyIPCServer,
         cityPicker: CityNamePicker = CityNamePicker(),
         worktreeRoot: URL = ConfigPaths.worktreeRoot
     ) {
@@ -93,9 +98,17 @@ final class ProjectsViewModel: ObservableObject {
         self.gitClient = gitClient
         self.statsReader = statsReader
         self.configStore = configStore
+        self.busyStore = busyStore
+        self.busyServer = busyServer
         self.cityPicker = cityPicker
         self.worktreeRoot = worktreeRoot
+
+        self.busyStore.onUpdate = { [weak self] snapshot in
+            self?.busyClaimsByPath = snapshot
+        }
+        self.busyClaimsByPath = busyStore.snapshot()
     }
+
 
     func load() {
         Task { await refresh() }

@@ -16,6 +16,7 @@
 - **Tests** cover all non‑UI behavior (unit + integration).
 - **Config + worktree root overrides** via env vars (for clean experiments).
 - **App bundle packaging** via `scripts/build_worky_app.sh` with Worky icon + Info.plist.
+- **Busy status IPC + UI** are implemented (UDS socket, CLI commands, and animated busy borders).
 
 ## Decisions Locked In
 - **Stack:** Swift + SwiftUI (macOS app).
@@ -33,6 +34,7 @@
 - **Templating vars:** `$WORKTREE`, `$WORKTREE_NAME`, `$PROJECT`, `$PROJECT_NAME`, `$REPO`.
 - **Sorting:** most recent activity (HEAD log mtime first, fallback to worktree mtime).
 - **Window:** standard app window with hidden title bar; background drag enabled.
+- **Busy IPC:** UDS socket at `~/.worky/run/worky.sock` with JSON messages.
 
 ## Config + Schema (Implemented)
 - **Default config:** empty `apps` and `projects` if no config file exists yet.
@@ -107,6 +109,7 @@
 - **Unit:** config parsing, templating, icon resolution, city selection, worktree parsing, activity logic, command execution.
 - **Integration:** git worktree add/list/remove using temp repos.
 - **View model:** loading behavior.
+- **Busy claims:** store behavior (claim/release/expiry).
 
 ## Smoke Check / Verification
 - Tests: `swift test`

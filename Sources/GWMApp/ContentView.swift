@@ -61,6 +61,7 @@ struct ContentView: View {
     private func projectSection(for project: ProjectViewData) -> some View {
         ProjectSection(
             project: project,
+            busyClaimsByPath: viewModel.busyClaimsByPath,
             draggingProject: $draggingProject,
             onAddWorktree: { viewModel.createWorktree(for: project) },
             onRemoveWorktree: { worktree in viewModel.removeWorktree(worktree, from: project) },
@@ -138,6 +139,7 @@ struct ContentView: View {
 
 struct ProjectSection: View {
     let project: ProjectViewData
+    let busyClaimsByPath: [String: [BusyClaim]]
     @Binding var draggingProject: ProjectViewData?
     let onAddWorktree: () -> Void
     let onRemoveWorktree: (WorktreeViewData) -> Void
@@ -158,6 +160,7 @@ struct ProjectSection: View {
                 ForEach(project.worktrees) { worktree in
                     WorktreeRow(
                         worktree: worktree,
+                        busyClaims: busyClaimsByPath[worktree.path] ?? [],
                         onRemove: { handleRemove(worktree) },
                         onRunButton: { button in onRunButton(button, worktree) }
                     )
@@ -291,6 +294,7 @@ struct ProjectSection: View {
 
 struct WorktreeRow: View {
     let worktree: WorktreeViewData
+    let busyClaims: [BusyClaim]
     let onRemove: () -> Void
     let onRunButton: (ButtonViewData) -> Void
     @State private var isTrashHovering = false
@@ -342,6 +346,7 @@ struct WorktreeRow: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(Theme.ink.opacity(0.08), lineWidth: 1)
         )
+        .overlay(busyOverlay)
     }
 
     private var trashOutlineColor: Color {
@@ -376,6 +381,14 @@ struct WorktreeRow: View {
             Text(worktree.lastActivityText)
                 .foregroundColor(Theme.ink.opacity(0.55))
             metadataDetail
+        }
+    }
+
+    @ViewBuilder
+    private var busyOverlay: some View {
+        if !busyClaims.isEmpty {
+            BusyBorderView(claims: busyClaims, cornerRadius: 12)
+                .allowsHitTesting(false)
         }
     }
 
@@ -520,6 +533,17 @@ enum Theme {
         PaletteColor(red: 0.15, green: 0.85, blue: 0.60)
     ]
     private static let worktreeTintStrength = 0.34
+    private static let busyStrokeOpacity = 0.55
+    private static let busyPalette: [PaletteColor] = [
+        PaletteColor(red: 0.97, green: 0.32, blue: 0.24),
+        PaletteColor(red: 0.98, green: 0.62, blue: 0.08),
+        PaletteColor(red: 0.98, green: 0.84, blue: 0.22),
+        PaletteColor(red: 0.18, green: 0.76, blue: 0.34),
+        PaletteColor(red: 0.12, green: 0.70, blue: 0.78),
+        PaletteColor(red: 0.20, green: 0.46, blue: 0.96),
+        PaletteColor(red: 0.58, green: 0.30, blue: 0.92),
+        PaletteColor(red: 0.94, green: 0.33, blue: 0.70)
+    ]
 
     static func worktreeRowBackgroundGradient(for worktreeName: String) -> LinearGradient {
         let base = PaletteColor(red: 0.98, green: 0.96, blue: 0.92)
@@ -544,6 +568,24 @@ enum Theme {
         )
     }
 
+    static func busyRingColor(for owner: String) -> Color {
+        guard !busyPalette.isEmpty else {
+            return Color.white.opacity(busyStrokeOpacity)
+        }
+        let index = busyPaletteIndex(for: owner)
+        let accent = busyPalette[index]
+        return accent.color.opacity(busyStrokeOpacity)
+    }
+
+    static func busyRingNSColor(for owner: String) -> NSColor {
+        guard !busyPalette.isEmpty else {
+            return NSColor.white.withAlphaComponent(busyStrokeOpacity)
+        }
+        let index = busyPaletteIndex(for: owner)
+        let accent = busyPalette[index]
+        return NSColor(calibratedRed: accent.red, green: accent.green, blue: accent.blue, alpha: busyStrokeOpacity)
+    }
+
     private static func worktreePaletteIndex(for worktreeName: String) -> Int {
         let hash = stableHash(worktreeName.isEmpty ? "worktree" : worktreeName)
         return Int(hash % UInt64(worktreePalette.count))
@@ -556,6 +598,11 @@ enum Theme {
             hash &*= 1099511628211
         }
         return hash
+    }
+
+    private static func busyPaletteIndex(for owner: String) -> Int {
+        let hash = stableHash(owner.isEmpty ? "busy" : owner)
+        return Int(hash % UInt64(busyPalette.count))
     }
 
     static func worktreeAccentColorRGB(for worktreeName: String) -> (Int, Int, Int) {

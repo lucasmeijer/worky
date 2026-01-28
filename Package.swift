@@ -20,6 +20,9 @@ let package = Package(
         .executableTarget(
             name: "GWMClick"
         ),
+        .executableTarget(
+            name: "worky"
+        ),
         .testTarget(
             name: "GWMAppTests",
             dependencies: ["GWMApp"]

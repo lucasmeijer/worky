@@ -29,6 +29,8 @@ final class ProjectsViewModelTests: XCTestCase {
             isValidGitDir: { _ in true }
         )
 
+        let busyStore = BusyClaimStore(autoTick: false)
+        let busyServer = BusyIPCServer(socketURL: URL(fileURLWithPath: "/tmp/worky-test.sock"), store: busyStore)
         let viewModel = ProjectsViewModel(
             loader: loader,
             iconResolver: IconResolver(
@@ -41,6 +43,8 @@ final class ProjectsViewModelTests: XCTestCase {
             gitClient: gitClient,
             statsReader: FakeWorktreeStatsReader(),
             configStore: configStore,
+            busyStore: busyStore,
+            busyServer: busyServer,
             cityPicker: CityNamePicker(names: ["oslo"], randomIndex: { _ in 0 })
         )
 

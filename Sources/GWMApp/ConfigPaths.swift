@@ -19,4 +19,11 @@ enum ConfigPaths {
         return FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".worky")
     }
+
+    static var ipcSocketURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".worky")
+            .appendingPathComponent("run")
+            .appendingPathComponent("worky.sock")
+    }
 }
