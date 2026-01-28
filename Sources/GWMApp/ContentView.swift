@@ -108,7 +108,7 @@ struct ProjectSection: View {
                 ForEach(project.worktrees) { worktree in
                     WorktreeRow(
                         worktree: worktree,
-                        onRemove: { deleteTarget = worktree },
+                        onRemove: { handleRemove(worktree) },
                         onRunButton: { button in onRunButton(button, worktree) }
                     )
                     .transition(.opacity)
@@ -138,6 +138,16 @@ struct ProjectSection: View {
             }
         } message: {
             Text("This will remove the selected worktree.")
+        }
+    }
+
+    private func handleRemove(_ worktree: WorktreeViewData) {
+        // Skip confirmation if worktree is clean and has no unmerged commits
+        if case .loaded(let stats) = worktree.statsState,
+           stats.isClean && stats.unmergedCommits == 0 {
+            onRemoveWorktree(worktree)
+        } else {
+            deleteTarget = worktree
         }
     }
 
