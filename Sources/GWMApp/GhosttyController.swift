@@ -9,7 +9,7 @@ struct GhosttyController: GhosttyControlling {
 
     // Base Ghostty background color (dark gray with slight blue tint)
     private static let baseColor = (r: 44, g: 46, b: 51)
-    private static let tintStrength = 0.30
+    private static let tintStrength = 0.15
 
     func openOrFocus(projectName: String, worktreeName: String, worktreePath: String) {
         // Get the accent color for this worktree
@@ -22,9 +22,12 @@ struct GhosttyController: GhosttyControlling {
 
         let colorArg = "\(tintedR),\(tintedG),\(tintedB)"
 
-        // Path to the script - relative to project directory
-        // TODO: Make this configurable or bundle as a resource for production
-        let scriptPath = "scripts/open_or_create_ghostty.sh"
+        // Path to the script in the app bundle
+        guard let resourcePath = Bundle.main.resourcePath else {
+            print("GWM Ghostty: ERROR - Could not find app bundle resource path")
+            return
+        }
+        let scriptPath = "\(resourcePath)/open_or_create_ghostty.sh"
 
         let command = ["/bin/bash", scriptPath, worktreePath, colorArg]
 

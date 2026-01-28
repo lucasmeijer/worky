@@ -28,5 +28,6 @@ mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 cp "$BIN_PATH" "$APP_DIR/Contents/MacOS/$BIN_NAME"
 cp "$INFO_PLIST" "$APP_DIR/Contents/Info.plist"
 cp "$ICON_FILE" "$APP_DIR/Contents/Resources/AppIcon.icns"
+cp "$ROOT_DIR/scripts/open_or_create_ghostty.sh" "$APP_DIR/Contents/Resources/open_or_create_ghostty.sh"
 
 echo "Built $APP_DIR"
