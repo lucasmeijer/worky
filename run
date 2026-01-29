@@ -11,11 +11,11 @@ done
 
 swift build -c release --product Worky
 osascript -e 'tell application id "com.lucasmeijer.worky" to quit' >/dev/null 2>&1 || true
-pkill -f "dist/Worky.app/Contents/MacOS/Worky" >/dev/null 2>&1 || true
+pkill -f "/Applications/Worky.app/Contents/MacOS/Worky" >/dev/null 2>&1 || true
 sleep 0.5
 scripts/build_worky.sh app
 
-app_path="dist/Worky.app"
+app_path="/Applications/Worky.app"
 app_bin="$app_path/Contents/MacOS/Worky"
 
 if $stdout; then

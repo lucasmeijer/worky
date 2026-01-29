@@ -7,7 +7,8 @@ BIN_NAME="Worky"
 INFO_PLIST="$ROOT_DIR/Resources/WorkyInfo.plist"
 ICON_FILE="$ROOT_DIR/Resources/AppIcon.icns"
 DIST_DIR="$ROOT_DIR/dist"
-APP_DIR="$DIST_DIR/${APP_NAME}.app"
+INSTALL_DIR="${WORKY_INSTALL_DIR:-/Applications}"
+APP_DIR="$INSTALL_DIR/${APP_NAME}.app"
 CERT_HOLDER="Lucas Meijer"
 
 ACTION="app"
@@ -129,11 +130,28 @@ sign_app() {
   /usr/bin/codesign --verify --deep --strict "$APP_DIR"
 }
 
+ensure_install_dir() {
+  if [[ ! -d "$INSTALL_DIR" ]]; then
+    echo "Install directory not found: $INSTALL_DIR" >&2
+    exit 1
+  fi
+  if [[ ! -w "$INSTALL_DIR" ]]; then
+    cat >&2 <<EOF
+Install directory is not writable: $INSTALL_DIR
+
+Run with sudo, or set WORKY_INSTALL_DIR to a writable location:
+  WORKY_INSTALL_DIR="$HOME/Applications" $0 $ACTION --mode $MODE
+EOF
+    exit 1
+  fi
+}
+
 build_app() {
   local bin_dir bin_path
   bin_dir=$(swift build -c release --product "$BIN_NAME" --show-bin-path)
   bin_path="$bin_dir/$BIN_NAME"
 
+  ensure_install_dir
   rm -rf "$APP_DIR"
   mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 

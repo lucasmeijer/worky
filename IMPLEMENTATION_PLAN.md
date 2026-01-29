@@ -15,7 +15,7 @@
 - **Auto‑quit for smoke checks** via `WORKY_AUTO_QUIT=1` (legacy `GWM_AUTO_QUIT` still supported).
 - **Tests** cover all non‑UI behavior (unit + integration).
 - **Config + worktree root overrides** via env vars (for clean experiments).
-- **App bundle packaging** via `scripts/build_worky.sh` with Worky icon + Info.plist.
+- **App bundle packaging** via `scripts/build_worky.sh` into `/Applications/Worky.app` (override with `WORKY_INSTALL_DIR`).
 - **Busy status IPC + UI** are implemented (UDS socket, CLI commands, and animated busy borders).
 - **Active worktree detection** now uses the bundled Ghostty helper script (`open_or_create_ghostty.sh --get-active`) to resolve the active window path, clears the active state on reactivation while the script runs, and shows a bold outline that fades in on the active worktree (icons remain layout-stable with opacity/hover).
 - **App bundle signing** is supported in `scripts/build_worky.sh` with local identity discovery (defaults: app->dev, dmg->dist; Apple Development for dev, Developer ID Application for dist; optional `CODESIGN_ENTITLEMENTS` and `CODESIGN_OPTIONS`).
@@ -34,7 +34,7 @@
 - **Default buttons:** Ghostty only (special handling).
 - **Icons:** app bundle, file path, or SF Symbol.
 - **Icon file path** can point at a `.app` bundle (icon extracted automatically).
- - **Bundle output:** `dist/Worky.app` using `Resources/WorkyInfo.plist` and `Resources/AppIcon.icns`.
+ - **Bundle output:** `/Applications/Worky.app` (or `WORKY_INSTALL_DIR`) using `Resources/WorkyInfo.plist` and `Resources/AppIcon.icns`.
 - **Templating vars:** `$WORKTREE`, `$WORKTREE_NAME`, `$PROJECT`, `$PROJECT_NAME`, `$REPO`.
 - **Sorting:** most recent activity (HEAD log mtime first, fallback to worktree mtime).
 - **Window:** standard app window with hidden title bar; background drag enabled.
