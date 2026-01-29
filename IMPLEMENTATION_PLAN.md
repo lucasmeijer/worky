@@ -8,8 +8,14 @@
 - **Default + config buttons** are implemented with icon resolution and availability checks.
 - **Plugin-based buttons** are implemented (only Ghostty is built-in; others come from repo config).
 - **Worktree rows use a left-to-right tint gradient** from a deterministic palette based on the worktree name.
-- **Ghostty open/focus** logic is implemented (AX-based focus, fallback open).
-- **Ghostty AppleScript launch** is supported (AppleScript first, fallback to `open`).
+- **Ghostty open/focus** logic is implemented (AX-based focus, AppleScript-driven create; no `open` fallback).
+- **Ghostty open-or-create** script now guards when the app is not running and waits for launch/frontmost before sending keystrokes.
+- **Ghostty helper script** now logs debug traces to `~/Library/Logs/Worky/ghostty.log` for troubleshooting.
+- **Ghostty helper script** now snapshots window state and errors if a new window is not created for the target directory.
+- **Ghostty helper script** now uses Cmd+N to create the window and targets the frontmost window (`window 1`) before sending setup commands (minimal wait; verbose window dumps only when `WORKY_GHOSTTY_DEBUG=1`).
+- **Ghostty helper script** uses OSC 11 when setting the background color.
+- **Ghostty button** now launches the helper script on a background task to avoid UI stalls.
+- **Ghostty AppleScript launch** is supported (errors if AppleScript fails; no `open` fallback).
 - **New worktree + delete worktree** flows are implemented (delete includes confirmation dialog; branch kept).
 - **Errors are printed to stdout** and shown in the UI.
 - **Auto‑quit for smoke checks** via `WORKY_AUTO_QUIT=1` (legacy `GWM_AUTO_QUIT` still supported).
@@ -123,5 +129,4 @@
 
 ## Known Behavior
 - Invalid or missing bare repo paths are skipped (and errors are printed).
-- If Accessibility permissions are missing, Ghostty focus falls back to opening a new window.
-- If AppleScript launch fails, Ghostty falls back to the `open` launch path.
+- If Accessibility permissions are missing or AppleScript fails, the Ghostty helper script errors (no `open` fallback).

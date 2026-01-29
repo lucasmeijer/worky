@@ -341,13 +341,19 @@ final class ProjectsViewModel: ObservableObject {
     func runButton(_ button: ButtonViewData, worktree: WorktreeViewData, project: ProjectViewData) {
         print("Worky action: run button \(button.id) for \(worktree.name)")
         if button.id == "ghostty" {
-            ghosttyController.openOrFocus(
-                projectName: project.name,
-                worktreeName: worktree.name,
-                worktreePath: worktree.path
-            )
             setActiveWorktreePath(worktree.path)
             onAppButtonClicked?()
+            let ghosttyController = self.ghosttyController
+            let projectName = project.name
+            let worktreeName = worktree.name
+            let worktreePath = worktree.path
+            Task.detached(priority: .utility) {
+                ghosttyController.openOrFocus(
+                    projectName: projectName,
+                    worktreeName: worktreeName,
+                    worktreePath: worktreePath
+                )
+            }
             return
         }
         Task {
