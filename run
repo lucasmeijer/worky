@@ -9,14 +9,14 @@ for arg in "$@"; do
   esac
 done
 
-swift build -c release --product GWMApp
+swift build -c release --product Worky
 osascript -e 'tell application id "com.lucasmeijer.worky" to quit' >/dev/null 2>&1 || true
-pkill -f "dist/Worky.app/Contents/MacOS/GWMApp" >/dev/null 2>&1 || true
+pkill -f "dist/Worky.app/Contents/MacOS/Worky" >/dev/null 2>&1 || true
 sleep 0.5
-scripts/build_worky_app.sh
+scripts/build_worky.sh app
 
 app_path="dist/Worky.app"
-app_bin="$app_path/Contents/MacOS/GWMApp"
+app_bin="$app_path/Contents/MacOS/Worky"
 
 if $stdout; then
   "$app_bin"

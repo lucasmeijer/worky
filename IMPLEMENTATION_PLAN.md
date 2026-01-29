@@ -1,4 +1,4 @@
-# Git Worktree Manager — Implementation Plan (Current State)
+# Worky — Implementation Plan (Current State)
 
 ## Status Snapshot (Implemented)
 - **SwiftUI UI is wired to real data** (view model + loader).
@@ -12,21 +12,24 @@
 - **Ghostty AppleScript launch** is supported (AppleScript first, fallback to `open`).
 - **New worktree + delete worktree** flows are implemented (delete includes confirmation dialog; branch kept).
 - **Errors are printed to stdout** and shown in the UI.
-- **Auto‑quit for smoke checks** via `GWM_AUTO_QUIT=1`.
+- **Auto‑quit for smoke checks** via `WORKY_AUTO_QUIT=1` (legacy `GWM_AUTO_QUIT` still supported).
 - **Tests** cover all non‑UI behavior (unit + integration).
 - **Config + worktree root overrides** via env vars (for clean experiments).
-- **App bundle packaging** via `scripts/build_worky_app.sh` with Worky icon + Info.plist.
+- **App bundle packaging** via `scripts/build_worky.sh` with Worky icon + Info.plist.
 - **Busy status IPC + UI** are implemented (UDS socket, CLI commands, and animated busy borders).
 - **Active worktree detection** now uses the bundled Ghostty helper script (`open_or_create_ghostty.sh --get-active`) to resolve the active window path, clears the active state on reactivation while the script runs, and shows a bold outline that fades in on the active worktree (icons remain layout-stable with opacity/hover).
+- **App bundle signing** is supported in `scripts/build_worky.sh` with local identity discovery (defaults: app->dev, dmg->dist; Apple Development for dev, Developer ID Application for dist; optional `CODESIGN_ENTITLEMENTS` and `CODESIGN_OPTIONS`).
+- **Apple Events usage message** is present in `Resources/WorkyInfo.plist` (`NSAppleEventsUsageDescription`).
+- **DMG packaging** is supported via `scripts/build_worky.sh` (Developer ID signing required; optional notarization with `NOTARY_PROFILE`; Finder window layout set for drag-to-Applications).
 
 ## Decisions Locked In
 - **Stack:** Swift + SwiftUI (macOS app).
 - **Config path:** `~/.config/git_worktree_manager/projects.json`.
-- **Config override env:** `GWM_CONFIG_DIR` (directory containing `projects.json`).
+- **Config override env:** `WORKY_CONFIG_DIR` (directory containing `projects.json`; legacy `GWM_CONFIG_DIR` still supported).
 - **Project entry:** repo path (worktree or bare). App resolves the underlying git dir via `git rev-parse --git-common-dir`.
 - **Worktree discovery:** `git --git-dir <bare> worktree list --porcelain`.
 - **New worktree base path:** `~/.worky/<projectName>/<cityName>`.
-- **Worktree root override env:** `GWM_WORKTREE_ROOT` (base folder for new worktrees).
+- **Worktree root override env:** `WORKY_WORKTREE_ROOT` (base folder for new worktrees; legacy `GWM_WORKTREE_ROOT` still supported).
 - **Branch naming:** same as city/worktree name.
 - **Default buttons:** Ghostty only (special handling).
 - **Icons:** app bundle, file path, or SF Symbol.
@@ -84,7 +87,7 @@
 
 ## New Worktree Creation (Implemented)
 - Path: `~/.worky/<projectName>/<cityName>`.
-- City names list is embedded in code (see `Sources/GWMApp/CityNames.swift`).
+- City names list is embedded in code (see `Sources/WorkyApp/CityNames.swift`).
 - Branch name = city name.
 
 ## Buttons & Commands (Implemented)
@@ -114,7 +117,7 @@
 
 ## Smoke Check / Verification
 - Tests: `swift test`
-- App startup (auto-quit): `GWM_AUTO_QUIT=1 swift run`
+- App startup (auto-quit): `WORKY_AUTO_QUIT=1 swift run Worky`
 
 ## Known Behavior
 - Invalid or missing bare repo paths are skipped (and errors are printed).

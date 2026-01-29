@@ -9,7 +9,7 @@
     <key>CFBundleIdentifier</key>
     <string>com.lucasmeijer.worky</string>
     <key>CFBundleExecutable</key>
-    <string>GWMApp</string>
+    <string>Worky</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -24,5 +24,7 @@
     <string>AppIcon</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Worky uses Apple Events to reliably control Ghostty windows for focused worktree management.</string>
 </dict>
 </plist>

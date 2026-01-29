@@ -4,28 +4,39 @@
 import PackageDescription
 
 let package = Package(
-    name: "GWMApp",
+    name: "Worky",
     platforms: [
         .macOS(.v13)
+    ],
+    products: [
+        .executable(name: "Worky", targets: ["WorkyApp"]),
+        .executable(name: "worky-cli", targets: ["WorkyCLI"]),
+        .executable(name: "worky-click", targets: ["WorkyClick"]),
+        .executable(name: "worky-screenshot", targets: ["WorkyScreenshot"])
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
         .executableTarget(
-            name: "GWMApp"
+            name: "WorkyApp",
+            path: "Sources/WorkyApp"
         ),
         .executableTarget(
-            name: "GWMScreenshot"
+            name: "WorkyScreenshot",
+            path: "Sources/WorkyScreenshot"
         ),
         .executableTarget(
-            name: "GWMClick"
+            name: "WorkyClick",
+            path: "Sources/WorkyClick"
         ),
         .executableTarget(
-            name: "worky"
+            name: "WorkyCLI",
+            path: "Sources/WorkyCLI"
         ),
         .testTarget(
-            name: "GWMAppTests",
-            dependencies: ["GWMApp"]
+            name: "WorkyAppTests",
+            dependencies: ["WorkyApp"],
+            path: "Tests/WorkyAppTests"
         ),
     ]
 )
