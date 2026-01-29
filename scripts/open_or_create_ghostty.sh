@@ -1,12 +1,80 @@
 #!/bin/bash
 
-# Usage: ./open_or_create_ghostty.sh <directory> [rgb_color]
+# Usage:
+#   ./open_or_create_ghostty.sh <directory> [rgb_color]
+#   ./open_or_create_ghostty.sh --get-active
 # rgb_color format: "R,G,B" (e.g., "255,128,64") or "#RRGGBB" (e.g., "#FF8040")
 
 if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
     echo "Usage: $0 <directory> [rgb_color]"
+    echo "       $0 --get-active"
     echo "  rgb_color format: 'R,G,B' or '#RRGGBB'"
     exit 1
+fi
+
+if [ "$1" = "--get-active" ]; then
+    ACTIVE_AXDOC=$(osascript <<'END'
+tell application "System Events"
+    if not (exists process "Ghostty") then return ""
+    tell process "Ghostty"
+        set targetWindow to missing value
+        try
+            set focusedWindow to value of attribute "AXFocusedWindow"
+            if focusedWindow is not missing value then set targetWindow to focusedWindow
+        end try
+        if targetWindow is missing value then
+            repeat with w in windows
+                try
+                    set isMain to value of attribute "AXMain" of w
+                    if isMain is true then
+                        set targetWindow to w
+                        exit repeat
+                    end if
+                end try
+            end repeat
+        end if
+        if targetWindow is missing value then
+            if (count of windows) > 0 then set targetWindow to window 1
+        end if
+        if targetWindow is missing value then return ""
+        try
+            set axDoc to value of attribute "AXDocument" of targetWindow
+            return axDoc as string
+        on error
+            return ""
+        end try
+    end tell
+end tell
+return ""
+END
+)
+
+    ACTIVE_AXDOC="$(echo "$ACTIVE_AXDOC" | tr -d '\r' | tr -d '\n')"
+    if [ -z "$ACTIVE_AXDOC" ] || [ "$ACTIVE_AXDOC" = "missing value" ]; then
+        exit 0
+    fi
+
+    if [[ "$ACTIVE_AXDOC" == file://* ]]; then
+        RAW_PATH="${ACTIVE_AXDOC#file://}"
+        if [[ "$RAW_PATH" == /* ]]; then
+            :
+        elif [[ "$RAW_PATH" == //* ]]; then
+            RAW_PATH="/${RAW_PATH#//}"
+        else
+            RAW_PATH="/$RAW_PATH"
+        fi
+        if command -v /usr/bin/python3 >/dev/null 2>&1; then
+            RAW_PATH="$(/usr/bin/python3 -c 'import sys, urllib.parse; print(urllib.parse.unquote(sys.argv[1]))' "$RAW_PATH")"
+        fi
+    else
+        RAW_PATH="$ACTIVE_AXDOC"
+    fi
+
+    RAW_PATH="${RAW_PATH%/}"
+    if [ -n "$RAW_PATH" ]; then
+        echo "$RAW_PATH"
+    fi
+    exit 0
 fi
 
 WORKDIR="$1"

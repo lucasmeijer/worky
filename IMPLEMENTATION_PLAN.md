@@ -17,6 +17,7 @@
 - **Config + worktree root overrides** via env vars (for clean experiments).
 - **App bundle packaging** via `scripts/build_worky_app.sh` with Worky icon + Info.plist.
 - **Busy status IPC + UI** are implemented (UDS socket, CLI commands, and animated busy borders).
+- **Active worktree detection** now uses the bundled Ghostty helper script (`open_or_create_ghostty.sh --get-active`) to resolve the active window path, clears the active state on reactivation while the script runs, and shows a bold outline that fades in on the active worktree (icons remain layout-stable with opacity/hover).
 
 ## Decisions Locked In
 - **Stack:** Swift + SwiftUI (macOS app).

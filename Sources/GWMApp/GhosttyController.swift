@@ -1,7 +1,8 @@
 import Foundation
 
-protocol GhosttyControlling {
+protocol GhosttyControlling: Sendable {
     func openOrFocus(projectName: String, worktreeName: String, worktreePath: String)
+    func activeWorktreePath() -> String?
 }
 
 struct GhosttyController: GhosttyControlling {
@@ -36,9 +37,27 @@ struct GhosttyController: GhosttyControlling {
         _ = try? runner.run(command, currentDirectory: nil)
     }
 
+    func activeWorktreePath() -> String? {
+        guard let resourcePath = Bundle.main.resourcePath else {
+            print("GWM Ghostty: ERROR - Could not find app bundle resource path")
+            return nil
+        }
+        let scriptPath = "\(resourcePath)/open_or_create_ghostty.sh"
+
+        do {
+            let result = try runner.run(["/bin/bash", scriptPath, "--get-active"], currentDirectory: nil)
+            guard result.exitCode == 0 else { return nil }
+            let trimmed = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        } catch {
+            return nil
+        }
+    }
+
     private func mix(base: Int, target: Int, fraction: Double) -> Int {
         let clamped = min(max(fraction, 0.0), 1.0)
         let result = Double(base) + (Double(target) - Double(base)) * clamped
         return Int(result.rounded())
     }
+
 }

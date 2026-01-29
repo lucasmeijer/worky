@@ -87,6 +87,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showPanel() {
+        viewModel.refreshActiveWorktreeFromGhostty()
         panel.show()
         // Load data when showing
         viewModel.load()

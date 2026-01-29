@@ -61,6 +61,7 @@ final class ProjectsViewModel: ObservableObject {
     @Published var projects: [ProjectViewData] = []
     @Published var errorMessage: String?
     @Published var busyClaimsByPath: [String: [BusyClaim]] = [:]
+    @Published var activeWorktreePath: String?
 
     var onAppButtonClicked: (() -> Void)?
 
@@ -77,6 +78,7 @@ final class ProjectsViewModel: ObservableObject {
     private let worktreeRoot: URL
     private let statsTargetRef = "origin/main"
     private var statsRefreshToken = UUID()
+    private var lastGhosttyWorktreePath: String?
 
     init(
         loader: ProjectsLoader,
@@ -150,6 +152,7 @@ final class ProjectsViewModel: ObservableObject {
             withAnimation(.easeInOut(duration: 0.25)) {
                 projects = nextProjects
             }
+            reconcileActiveWorktreePath()
             refreshStats(for: nextProjects)
         } catch {
             handleError(error)
@@ -334,6 +337,7 @@ final class ProjectsViewModel: ObservableObject {
                 worktreeName: worktree.name,
                 worktreePath: worktree.path
             )
+            setActiveWorktreePath(worktree.path)
             onAppButtonClicked?()
             return
         }
@@ -351,10 +355,53 @@ final class ProjectsViewModel: ObservableObject {
         refreshStats(for: projects)
     }
 
+    func refreshActiveWorktreeFromGhostty() {
+        setActiveWorktreePath(nil)
+        let ghosttyController = self.ghosttyController
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let path = ghosttyController.activeWorktreePath()
+            DispatchQueue.main.async {
+                self?.setActiveWorktreePath(path)
+            }
+        }
+    }
+
+    func isActiveWorktree(path: String) -> Bool {
+        guard let activeWorktreePath else { return false }
+        return normalizePath(activeWorktreePath) == normalizePath(path)
+    }
+
     private func handleError(_ error: Error) {
         let message = error.localizedDescription
         errorMessage = message
         print("GWM error: \(message)")
+    }
+
+    private func setActiveWorktreePath(_ path: String?) {
+        lastGhosttyWorktreePath = path
+        applyActiveWorktreePath(path)
+    }
+
+    private func reconcileActiveWorktreePath() {
+        applyActiveWorktreePath(lastGhosttyWorktreePath)
+    }
+
+    private func applyActiveWorktreePath(_ path: String?) {
+        let managedPaths = Set(projects.flatMap { project in
+            project.worktrees.map { normalizePath($0.path) }
+        })
+        guard let path else {
+            activeWorktreePath = nil
+            return
+        }
+        let normalized = normalizePath(path)
+        activeWorktreePath = managedPaths.contains(normalized) ? normalized : nil
+    }
+
+    private func normalizePath(_ path: String) -> String {
+        let resolved = URL(fileURLWithPath: path).resolvingSymlinksInPath().path
+        guard resolved.count > 1, resolved.hasSuffix("/") else { return resolved }
+        return String(resolved.dropLast())
     }
 
     private func refreshStats(for projects: [ProjectViewData]) {

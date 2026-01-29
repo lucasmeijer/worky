@@ -54,6 +54,7 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             viewModel.refreshStatsOnActivation()
+            viewModel.refreshActiveWorktreeFromGhostty()
         }
     }
 
@@ -62,6 +63,7 @@ struct ContentView: View {
         ProjectSection(
             project: project,
             busyClaimsByPath: viewModel.busyClaimsByPath,
+            activeWorktreePath: viewModel.activeWorktreePath,
             draggingProject: $draggingProject,
             onAddWorktree: { viewModel.createWorktree(for: project) },
             onRemoveWorktree: { worktree in viewModel.removeWorktree(worktree, from: project) },
@@ -140,6 +142,7 @@ struct ContentView: View {
 struct ProjectSection: View {
     let project: ProjectViewData
     let busyClaimsByPath: [String: [BusyClaim]]
+    let activeWorktreePath: String?
     @Binding var draggingProject: ProjectViewData?
     let onAddWorktree: () -> Void
     let onRemoveWorktree: (WorktreeViewData) -> Void
@@ -160,6 +163,7 @@ struct ProjectSection: View {
                 ForEach(project.worktrees) { worktree in
                     WorktreeRow(
                         worktree: worktree,
+                        isActive: isWorktreeActive(worktree),
                         busyClaims: busyClaimsByPath[worktree.path] ?? [],
                         onRemove: { handleRemove(worktree) },
                         onRunButton: { button in onRunButton(button, worktree) }
@@ -210,6 +214,17 @@ struct ProjectSection: View {
         } else {
             deleteTarget = worktree
         }
+    }
+
+    private func isWorktreeActive(_ worktree: WorktreeViewData) -> Bool {
+        guard let activeWorktreePath else { return false }
+        return normalizePath(activeWorktreePath) == normalizePath(worktree.path)
+    }
+
+    private func normalizePath(_ path: String) -> String {
+        let resolved = URL(fileURLWithPath: path).resolvingSymlinksInPath().path
+        guard resolved.count > 1, resolved.hasSuffix("/") else { return resolved }
+        return String(resolved.dropLast())
     }
 
     private var header: some View {
@@ -294,19 +309,19 @@ struct ProjectSection: View {
 
 struct WorktreeRow: View {
     let worktree: WorktreeViewData
+    let isActive: Bool
     let busyClaims: [BusyClaim]
     let onRemove: () -> Void
     let onRunButton: (ButtonViewData) -> Void
     @State private var isTrashHovering = false
     @State private var isTrashPressed = false
+    @State private var isRowHovering = false
 
     var body: some View {
         HStack() {
             titleBlock
             Spacer();
-            ForEach(worktree.buttons, id: \.swiftUIId) { button in
-                AppIconButton(button: button, onRunButton: onRunButton)
-            }
+            iconsRow
             
             Button(action: onRemove) {
                     Image(systemName: "trash")
@@ -346,7 +361,11 @@ struct WorktreeRow: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(Theme.ink.opacity(0.08), lineWidth: 1)
         )
+        .overlay(activeOutline)
         .overlay(busyOverlay)
+        .onHover { hovering in
+            isRowHovering = hovering
+        }
     }
 
     private var trashOutlineColor: Color {
@@ -361,6 +380,38 @@ struct WorktreeRow: View {
 
     private var trashOutlineWidth: CGFloat {
         (isTrashHovering || isTrashPressed) ? 2 : 0
+    }
+
+    private var shouldShowIcons: Bool {
+        isActive || isRowHovering
+    }
+
+    private var iconsRow: some View {
+        HStack(spacing: 8) {
+            ForEach(worktree.buttons, id: \.swiftUIId) { button in
+                AppIconButton(button: button, onRunButton: onRunButton)
+            }
+        }
+        .opacity(shouldShowIcons ? 1.0 : 0.0)
+        .allowsHitTesting(shouldShowIcons)
+        .animation(.easeInOut(duration: 0.2), value: shouldShowIcons)
+    }
+
+    private var activeOutline: some View {
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .stroke(activeOutlineColor, lineWidth: 3)
+            .opacity(isActive ? 1.0 : 0.0)
+            .animation(.easeInOut(duration: 0.2), value: isActive)
+    }
+
+    private var activeOutlineColor: Color {
+        let (r, g, b) = Theme.worktreeAccentColorRGB(for: worktree.name)
+        return Color(
+            red: Double(r) / 255.0,
+            green: Double(g) / 255.0,
+            blue: Double(b) / 255.0
+        )
+        .opacity(0.85)
     }
 
     private var titleBlock: some View {

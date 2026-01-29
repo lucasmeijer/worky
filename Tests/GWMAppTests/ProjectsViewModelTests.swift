@@ -57,6 +57,7 @@ final class ProjectsViewModelTests: XCTestCase {
 
 private struct FakeGhosttyController: GhosttyControlling {
     func openOrFocus(projectName: String, worktreeName: String, worktreePath: String) {}
+    func activeWorktreePath() -> String? { nil }
 }
 
 private struct FakeCommandExecutor: CommandExecuting {
