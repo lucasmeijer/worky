@@ -72,14 +72,19 @@ final class ProjectsViewModel: ObservableObject {
     private let commandExecutor: CommandExecuting
     private let gitClient: GitClienting
     private let statsReader: WorktreeStatsReading
+    private let branchRenamer: BranchRenameControlling
     private let configStore: ProjectsConfigStoring
     private let busyStore: BusyClaimStore
     private let busyServer: BusyIPCServer
     private let cityPicker: CityNamePicker
     private let worktreeRoot: URL
+    private let cityNameSet = Set(CityNames.list)
     private let statsTargetRef = "origin/main"
     private var statsRefreshToken = UUID()
     private var lastGhosttyWorktreePath: String?
+    private var renameCandidateToken = UUID()
+    @Published var renamingWorktreeIds: Set<String> = []
+    @Published var renameCandidateWorktreeIds: Set<String> = []
 
     init(
         loader: ProjectsLoader,
@@ -88,6 +93,7 @@ final class ProjectsViewModel: ObservableObject {
         commandExecutor: CommandExecuting,
         gitClient: GitClienting,
         statsReader: WorktreeStatsReading,
+        branchRenamer: BranchRenameControlling,
         configStore: ProjectsConfigStoring,
         busyStore: BusyClaimStore,
         busyServer: BusyIPCServer,
@@ -100,6 +106,7 @@ final class ProjectsViewModel: ObservableObject {
         self.commandExecutor = commandExecutor
         self.gitClient = gitClient
         self.statsReader = statsReader
+        self.branchRenamer = branchRenamer
         self.configStore = configStore
         self.busyStore = busyStore
         self.busyServer = busyServer
@@ -483,6 +490,58 @@ final class ProjectsViewModel: ObservableObject {
                 gitDirPath: project.gitDirPath,
                 worktrees: worktrees
             )
+        }
+        refreshRenameCandidates()
+    }
+
+    private func refreshRenameCandidates() {
+        let worktrees = projects.flatMap(\.worktrees)
+        guard !worktrees.isEmpty else {
+            renameCandidateWorktreeIds = []
+            return
+        }
+
+        let candidates = worktrees.filter { worktree in
+            guard let stats = worktree.stats else { return false }
+            guard cityNameSet.contains(worktree.branchName.lowercased()) else { return false }
+            return stats.unmergedCommits > 0 || !stats.isClean
+        }
+
+        guard !candidates.isEmpty else {
+            renameCandidateWorktreeIds = []
+            return
+        }
+
+        let token = UUID()
+        renameCandidateToken = token
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self else { return }
+            var ids = Set<String>()
+            for worktree in candidates {
+                if !self.branchRenamer.hasUpstreamBranch(forWorktreePath: worktree.path) {
+                    ids.insert(worktree.id)
+                }
+            }
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                guard self.renameCandidateToken == token else { return }
+                self.renameCandidateWorktreeIds = ids
+            }
+        }
+    }
+
+    func renameBranch(for worktree: WorktreeViewData) {
+        guard !renamingWorktreeIds.contains(worktree.id) else { return }
+        renamingWorktreeIds.insert(worktree.id)
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let renamed = self?.branchRenamer.runRenameScript(forWorktreePath: worktree.path) != nil
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.renamingWorktreeIds.remove(worktree.id)
+                if renamed {
+                    Task { await self.refresh() }
+                }
+            }
         }
     }
 }

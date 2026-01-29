@@ -25,6 +25,7 @@ enum AppDependencies {
             commandExecutor: CommandExecutor(runner: processRunner),
             gitClient: gitClient,
             statsReader: statsReader,
+            branchRenamer: BranchRenameController(runner: processRunner),
             configStore: configStore,
             busyStore: busyStore,
             busyServer: busyServer,

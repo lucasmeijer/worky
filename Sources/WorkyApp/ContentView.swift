@@ -65,9 +65,12 @@ struct ContentView: View {
             project: project,
             busyClaimsByPath: viewModel.busyClaimsByPath,
             activeWorktreePath: viewModel.activeWorktreePath,
+            renamingWorktreeIds: viewModel.renamingWorktreeIds,
+            renameCandidateWorktreeIds: viewModel.renameCandidateWorktreeIds,
             draggingProject: $draggingProject,
             onAddWorktree: { viewModel.createWorktree(for: project) },
             onRemoveWorktree: { worktree in viewModel.removeWorktree(worktree, from: project) },
+            onRenameWorktree: { worktree in viewModel.renameBranch(for: worktree) },
             onRemoveProject: { viewModel.removeProject(project) },
             onRunButton: { button, worktree in
                 viewModel.runButton(button, worktree: worktree, project: project)
@@ -144,9 +147,12 @@ struct ProjectSection: View {
     let project: ProjectViewData
     let busyClaimsByPath: [String: [BusyClaim]]
     let activeWorktreePath: String?
+    let renamingWorktreeIds: Set<String>
+    let renameCandidateWorktreeIds: Set<String>
     @Binding var draggingProject: ProjectViewData?
     let onAddWorktree: () -> Void
     let onRemoveWorktree: (WorktreeViewData) -> Void
+    let onRenameWorktree: (WorktreeViewData) -> Void
     let onRemoveProject: () -> Void
     let onRunButton: (ButtonViewData, WorktreeViewData) -> Void
     let onReorder: ([ProjectViewData]) -> Void
@@ -166,6 +172,9 @@ struct ProjectSection: View {
                         worktree: worktree,
                         isActive: isWorktreeActive(worktree),
                         busyClaims: busyClaimsByPath[worktree.path] ?? [],
+                        isRenaming: renamingWorktreeIds.contains(worktree.id),
+                        canRename: renameCandidateWorktreeIds.contains(worktree.id),
+                        onRename: { onRenameWorktree(worktree) },
                         onRemove: { handleRemove(worktree) },
                         onRunButton: { button in onRunButton(button, worktree) }
                     )
@@ -312,6 +321,9 @@ struct WorktreeRow: View {
     let worktree: WorktreeViewData
     let isActive: Bool
     let busyClaims: [BusyClaim]
+    let isRenaming: Bool
+    let canRename: Bool
+    let onRename: () -> Void
     let onRemove: () -> Void
     let onRunButton: (ButtonViewData) -> Void
     @State private var isTrashHovering = false
@@ -419,15 +431,39 @@ struct WorktreeRow: View {
 
     private var titleBlock: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(worktree.branchName)
-                .font(.custom("Avenir Next", size: 14))
-                .fontWeight(.semibold)
-                .foregroundStyle(Theme.ink)
+            HStack(spacing: 6) {
+                renameControl
+                Text(worktree.branchName)
+                    .font(.custom("Avenir Next", size: 14))
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Theme.ink)
+            }
             metadataLine
                 .font(.custom("Avenir Next", size: 11))
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
         }
+    }
+
+    private var renameControl: some View {
+        Group {
+            if isRenaming {
+                ProgressView()
+                    .controlSize(.mini)
+                    .scaleEffect(0.7)
+            } else if canRename {
+                Button(action: onRename) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Theme.ink.opacity(0.6))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Rename Branch")
+            } else {
+                Color.clear
+            }
+        }
+        .frame(width: 14, height: 14)
     }
 
     private var metadataLine: some View {

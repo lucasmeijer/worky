@@ -42,6 +42,7 @@ final class ProjectsViewModelTests: XCTestCase {
             commandExecutor: FakeCommandExecutor(),
             gitClient: gitClient,
             statsReader: FakeWorktreeStatsReader(),
+            branchRenamer: FakeBranchRenamer(),
             configStore: configStore,
             busyStore: busyStore,
             busyServer: busyServer,
@@ -94,6 +95,11 @@ private struct FakeWorktreeStatsReader: WorktreeStatsReading, Sendable {
     func stats(forWorktreePath worktreePath: String, targetRef: String) throws -> WorktreeStats {
         WorktreeStats(unmergedCommits: 0, filesAdded: 0, filesRemoved: 0)
     }
+}
+
+private struct FakeBranchRenamer: BranchRenameControlling {
+    func hasUpstreamBranch(forWorktreePath worktreePath: String) -> Bool { true }
+    func runRenameScript(forWorktreePath worktreePath: String) -> String? { nil }
 }
 
 private struct FakeActivityReader: WorktreeActivityReading {

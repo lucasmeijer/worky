@@ -159,6 +159,7 @@ build_app() {
   cp "$INFO_PLIST" "$APP_DIR/Contents/Info.plist"
   cp "$ICON_FILE" "$APP_DIR/Contents/Resources/AppIcon.icns"
   cp "$ROOT_DIR/scripts/open_or_create_ghostty.sh" "$APP_DIR/Contents/Resources/open_or_create_ghostty.sh"
+  cp "$ROOT_DIR/scripts/rename_branch_from_diff.sh" "$APP_DIR/Contents/Resources/rename_branch_from_diff.sh"
 }
 
 build_dmg() {

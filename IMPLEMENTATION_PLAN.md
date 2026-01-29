@@ -21,6 +21,8 @@
 - **App bundle signing** is supported in `scripts/build_worky.sh` with local identity discovery (defaults: app->dev, dmg->dist; Apple Development for dev, Developer ID Application for dist; optional `CODESIGN_ENTITLEMENTS` and `CODESIGN_OPTIONS`).
 - **Apple Events usage message** is present in `Resources/WorkyInfo.plist` (`NSAppleEventsUsageDescription`).
 - **DMG packaging** is supported via `scripts/build_worky.sh` (Developer ID signing required; optional notarization with `NOTARY_PROFILE`; Finder window layout set for drag-to-Applications).
+- **Branch rename helper script** is bundled in the app and can propose/rename branches from `git diff` via the Claude CLI, with tests.
+- **Manual branch rename button** appears before the branch name, shows a spinner while running, and refreshes worktree data after a successful rename.
 
 ## Decisions Locked In
 - **Stack:** Swift + SwiftUI (macOS app).
