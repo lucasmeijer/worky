@@ -323,36 +323,38 @@ struct WorktreeRow: View {
             titleBlock
             Spacer();
             iconsRow
-            
-            Button(action: onRemove) {
-                    Image(systemName: "trash")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(Theme.coral)
-                        .frame(width: 32, height: 32)
-                        .background(
+
+            if !worktree.isMainRepo {
+                Button(action: onRemove) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(Theme.coral)
+                            .frame(width: 32, height: 32)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(Theme.sand)
+                            )
+                        .overlay(
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(Theme.sand)
+                                .stroke(Theme.ink.opacity(0.12), lineWidth: 1)
                         )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(Theme.ink.opacity(0.12), lineWidth: 1)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(trashOutlineColor, lineWidth: trashOutlineWidth)
-                    )
-                    .contentShape(Rectangle())
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(trashOutlineColor, lineWidth: trashOutlineWidth)
+                        )
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Delete Worktree")
+                .onHover { hovering in
+                    isTrashHovering = hovering
+                }
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { _ in isTrashPressed = true }
+                        .onEnded { _ in isTrashPressed = false }
+                )
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Delete Worktree")
-            .onHover { hovering in
-                isTrashHovering = hovering
-            }
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in isTrashPressed = true }
-                    .onEnded { _ in isTrashPressed = false }
-            )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)

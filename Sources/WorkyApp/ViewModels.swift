@@ -17,6 +17,7 @@ struct WorktreeViewData: Identifiable {
     let lastActivityText: String
     let statsState: WorktreeStatsState
     let buttons: [ButtonViewData]
+    let isMainRepo: Bool
 
     var stats: WorktreeStats? {
         if case let .loaded(stats) = statsState {
@@ -144,7 +145,8 @@ final class ProjectsViewModel: ObservableObject {
                                     icon: iconResolver.resolve(button.icon),
                                     command: button.command
                                 )
-                            }
+                            },
+                            isMainRepo: worktree.isMainRepo
                         )
                     }
                 )
@@ -444,7 +446,8 @@ final class ProjectsViewModel: ObservableObject {
                     path: worktree.path,
                     lastActivityText: worktree.lastActivityText,
                     statsState: .loading,
-                    buttons: worktree.buttons
+                    buttons: worktree.buttons,
+                    isMainRepo: worktree.isMainRepo
                 )
             }
             return ProjectViewData(
@@ -469,7 +472,8 @@ final class ProjectsViewModel: ObservableObject {
                     path: worktree.path,
                     lastActivityText: worktree.lastActivityText,
                     statsState: statsState,
-                    buttons: worktree.buttons
+                    buttons: worktree.buttons,
+                    isMainRepo: worktree.isMainRepo
                 )
             }
             return ProjectViewData(

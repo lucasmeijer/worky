@@ -47,17 +47,26 @@ struct GitClient: GitClienting {
         }
 
         let normalizedBare = normalizePath(bareRepoPath)
+        let isBare = isBareRepository(bareRepoPath)
+
         return GitWorktreeParser.parsePorcelain(result.stdout)
             .filter { normalizePath($0.path) != normalizedBare }
             .filter { !$0.isPrunable }
-            .filter { !isMainWorkingDirectory($0.path) }
+            .filter { entry in
+                // If it's a bare repo, exclude the main working directory
+                // If it's not a bare repo, include the main working directory
+                let isMain = isMainWorkingDirectory(entry.path)
+                return !isMain || !isBare
+            }
             .map { entry in
-                GitWorktreeEntry(
+                let isMain = isMainWorkingDirectory(entry.path)
+                return GitWorktreeEntry(
                     path: normalizePath(entry.path),
                     head: entry.head,
                     branch: entry.branch,
                     isDetached: entry.isDetached,
-                    isPrunable: entry.isPrunable
+                    isPrunable: entry.isPrunable,
+                    isMainRepo: isMain && !isBare
                 )
             }
     }
@@ -69,6 +78,14 @@ struct GitClient: GitClienting {
         var isDirectory: ObjCBool = false
         let exists = FileManager.default.fileExists(atPath: gitPath, isDirectory: &isDirectory)
         return exists && isDirectory.boolValue
+    }
+
+    private func isBareRepository(_ gitDirPath: String) -> Bool {
+        // A bare repository doesn't have a parent working directory with a .git folder
+        // Check if the gitDirPath ends with /.git
+        // If it does, it's not a bare repo (it's the .git folder of a non-bare repo)
+        // If it doesn't, it's a bare repo
+        return !gitDirPath.hasSuffix("/.git")
     }
 
     func addWorktree(bareRepoPath: String, path: String, branchName: String) throws {

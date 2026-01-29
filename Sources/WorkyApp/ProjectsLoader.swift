@@ -39,14 +39,16 @@ struct WorktreeItem: Identifiable {
     let path: String
     let lastActivity: Date
     let buttons: [ResolvedButton]
+    let isMainRepo: Bool
 
-    init(name: String, branchName: String, path: String, lastActivity: Date, buttons: [ResolvedButton]) {
+    init(name: String, branchName: String, path: String, lastActivity: Date, buttons: [ResolvedButton], isMainRepo: Bool) {
         self.id = path
         self.name = name
         self.branchName = branchName
         self.path = path
         self.lastActivity = lastActivity
         self.buttons = buttons
+        self.isMainRepo = isMainRepo
     }
 }
 
@@ -104,7 +106,7 @@ struct ProjectsLoader {
                         variables: variables
                     )
                     let lastActivity = (try? activityReader.lastActivityDate(forWorktreePath: entry.path)) ?? Date.distantPast
-                    return WorktreeItem(name: name, branchName: branchName, path: entry.path, lastActivity: lastActivity, buttons: buttons)
+                    return WorktreeItem(name: name, branchName: branchName, path: entry.path, lastActivity: lastActivity, buttons: buttons, isMainRepo: entry.isMainRepo)
                 }
                 let sorted = worktrees.sorted { $0.lastActivity > $1.lastActivity }
                 items.append(ProjectItem(name: projectName, repoPath: repoPath, gitDirPath: gitDir, worktrees: sorted))
